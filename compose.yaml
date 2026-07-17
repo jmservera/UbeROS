@@ -139,6 +139,8 @@ services:
   frontend:
     build:
       context: ./services/frontend
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     networks:
       - web_net
     restart: unless-stopped

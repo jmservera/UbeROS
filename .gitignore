@@ -26,4 +26,4 @@ workspace/build/
 workspace/install/
 workspace/log/
 .env
-build.log
+build*.log

@@ -4,9 +4,13 @@
 
 # --- build stage ---
 FROM node:20-alpine AS build
+# npm registry is configurable so corporate/internal proxies stay out of the
+# repo. Default is the public registry; override via the NPM_REGISTRY build arg
+# (wired from .env through compose.yaml).
+ARG NPM_REGISTRY=https://registry.npmjs.org/
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm config set registry "$NPM_REGISTRY" && npm install
 COPY . .
 RUN npm run build
 
