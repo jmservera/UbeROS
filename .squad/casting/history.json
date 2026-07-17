@@ -1,0 +1,22 @@
+{
+  "universe_usage_history": [
+    {
+      "universe": "The Matrix",
+      "assignment_id": "uberos-ros-browser-platform-20260717",
+      "used_at": "2026-07-17T09:22:05.804+02:00"
+    }
+  ],
+  "assignment_cast_snapshots": {
+    "uberos-ros-browser-platform-20260717": {
+      "universe": "The Matrix",
+      "agents": {
+        "technical-lead": "Morpheus",
+        "ros-simulation-engineer": "Neo",
+        "platform-engineer": "Trinity",
+        "frontend-engineer": "Switch",
+        "integration-test-engineer": "Tank"
+      },
+      "created_at": "2026-07-17T09:22:05.804+02:00"
+    }
+  }
+}

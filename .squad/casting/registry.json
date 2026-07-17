@@ -1,0 +1,39 @@
+{
+  "agents": {
+    "technical-lead": {
+      "persistent_name": "Morpheus",
+      "universe": "The Matrix",
+      "created_at": "2026-07-17T09:22:05.804+02:00",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "ros-simulation-engineer": {
+      "persistent_name": "Neo",
+      "universe": "The Matrix",
+      "created_at": "2026-07-17T09:22:05.804+02:00",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "platform-engineer": {
+      "persistent_name": "Trinity",
+      "universe": "The Matrix",
+      "created_at": "2026-07-17T09:22:05.804+02:00",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "frontend-engineer": {
+      "persistent_name": "Switch",
+      "universe": "The Matrix",
+      "created_at": "2026-07-17T09:22:05.804+02:00",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "integration-test-engineer": {
+      "persistent_name": "Tank",
+      "universe": "The Matrix",
+      "created_at": "2026-07-17T09:22:05.804+02:00",
+      "legacy_named": false,
+      "status": "active"
+    }
+  }
+}
