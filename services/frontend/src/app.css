@@ -32,6 +32,15 @@ body,
   background: #000;
 }
 
+/* While a Golden Layout splitter (resize) or tab (reorder) is being dragged,
+   the layout tracks the pointer via mousemove on `document`. When the cursor
+   crosses a panel iframe (noVNC / terminal / code-server), the iframe swallows
+   those events and the drag freezes. Disabling pointer events on the iframes
+   for the duration of the drag keeps the events flowing to the document. */
+.uberos-dragging .panel-frame {
+  pointer-events: none;
+}
+
 .panel-body {
   padding: 0.75rem;
   height: 100%;

@@ -93,8 +93,28 @@
     const onResize = () => layout.updateSize();
     window.addEventListener('resize', onResize);
 
+    // Golden Layout drives splitter resizes and tab reorders by listening for
+    // mousemove/touchmove on `document`. When the cursor crosses one of the
+    // panel iframes (noVNC / terminal / code-server), the iframe captures those
+    // events and the drag stalls the moment the splitter overlaps the iframe.
+    // Marking the shell as "dragging" disables pointer events on the iframes
+    // (see app.css) so the drag keeps tracking until the button is released.
+    const DRAG_HANDLE = '.lm_splitter, .lm_tab';
+    const endDrag = () => document.body.classList.remove('uberos-dragging');
+    const startDrag = (event) => {
+      if (!event.target.closest?.(DRAG_HANDLE)) return;
+      document.body.classList.add('uberos-dragging');
+      window.addEventListener('mouseup', endDrag, { once: true });
+      window.addEventListener('touchend', endDrag, { once: true });
+    };
+    container.addEventListener('mousedown', startDrag, true);
+    container.addEventListener('touchstart', startDrag, true);
+
     return () => {
       window.removeEventListener('resize', onResize);
+      container.removeEventListener('mousedown', startDrag, true);
+      container.removeEventListener('touchstart', startDrag, true);
+      endDrag();
       channel?.close();
       layout.destroy();
     };
