@@ -162,8 +162,32 @@ services:
       retries: 5
       start_period: 10s
 
+  control:
+    build:
+      context: ./services/control
+    environment:
+      # Compose project name used to scope Docker API queries (matches `name:`).
+      UBEROS_PROJECT: ${COMPOSE_PROJECT_NAME:-uberos}
+      # Services the system menu is allowed to restart (BR-007). The control
+      # plane itself, the proxy, and discovery-server are intentionally excluded.
+      UBEROS_SERVICES: ${UBEROS_SERVICES:-ros,simulator,vnc,editor,frontend}
+      # Surfaced to the SPA so it knows whether to show Logout (BR-008).
+      UBEROS_AUTH: ${UBEROS_AUTH:-off}
+    volumes:
+      # Read/write access to the Docker socket to restart individual services.
+      # The API surface is restricted to the allowlist above (see server.js).
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - web_net
+    # Never host-published; reachable only through the proxy (INV-04, WP-13).
+    restart: unless-stopped
+
   proxy:
-    image: nginx:1.27-alpine
+    build:
+      context: ./services/proxy
+    environment:
+      # Toggle proxy basic auth without code edits (BR-010, N-05).
+      UBEROS_AUTH: ${UBEROS_AUTH:-off}
     depends_on:
       ros:
         condition: service_healthy
@@ -172,6 +196,8 @@ services:
       editor:
         condition: service_healthy
       frontend:
+        condition: service_healthy
+      control:
         condition: service_healthy
     ports:
       - "${UBEROS_PORT:-8080}:8080"

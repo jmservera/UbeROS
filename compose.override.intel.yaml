@@ -1,0 +1,33 @@
+# Intel GPU acceleration overlay (opt-in, Linux + Intel iGPU/dGPU).
+# Usage: docker compose -f compose.yaml -f compose.override.intel.yaml up
+#
+# Passes the host DRI render nodes (/dev/dri) into the simulator so Gazebo
+# renders through the Intel Mesa (iris) GL stack instead of software Mesa.
+# This is the Intel counterpart to compose.override.gpu.yaml (NVIDIA); load
+# only ONE GPU overlay at a time.
+#
+# Requirements (host-specific, see docs/specs/03-intel-openvino-research.md):
+#   - Linux host with an Intel GPU and the kernel i915 driver loaded.
+#   - /dev/dri present on the host (Docker Desktop on macOS/Windows has none,
+#     so those hosts must simply not load this overlay).
+#   - The `render` and `video` group GIDs below are HOST-SPECIFIC. Find them
+#     with `getent group render video` and override via .env if they differ.
+
+services:
+  simulator:
+    environment:
+      # Disable software rendering so the Intel Mesa (iris) GL stack is used.
+      LIBGL_ALWAYS_SOFTWARE: ""
+      # Intel media driver for VA-API (Gen8+). Use i965 only on legacy GPUs.
+      LIBVA_DRIVER_NAME: iHD
+    # Map the host DRI render nodes into the container. The `devices:` list is
+    # the portable Compose way to expose /dev/dri (card* + renderD*).
+    devices:
+      - /dev/dri:/dev/dri
+    # The render node is owned by the `render` group (and `video` on some
+    # distros). Add those GIDs so the container user can open renderD128
+    # without running privileged. GIDs are host-specific: override with
+    # UBEROS_RENDER_GID / UBEROS_VIDEO_GID in .env when `getent group` differs.
+    group_add:
+      - "${UBEROS_RENDER_GID:-render}"
+      - "${UBEROS_VIDEO_GID:-video}"

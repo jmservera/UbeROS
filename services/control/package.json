@@ -1,0 +1,11 @@
+{
+  "name": "uberos-control",
+  "version": "0.1.0",
+  "private": true,
+  "description": "UberOS operational control plane: per-service restart and workspace config for the system menu.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

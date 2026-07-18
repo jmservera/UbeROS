@@ -42,6 +42,7 @@ docker compose down
 | `simulator` | Gazebo + Xvfb (software rendering by default) | 5900, 6080 |
 | `vnc` | x11vnc + noVNC sidecar (shares the simulator namespace) | 5900, 6080 |
 | `editor` | code-server on the shared ROS workspace | 8443 |
+| `control` | Operational control plane (per-service reset, workspace config) | 9000 |
 | `discovery-server` | Fast DDS discovery (removes multicast dependency) | 11811 |
 
 Only the proxy port is published to the host. Backend ports are reachable only
@@ -58,15 +59,25 @@ Settings live in `.env` (committed defaults contain no secrets):
 | `UBEROS_PORT` | `8080` | Host port for the proxy |
 | `ROS_DOMAIN_ID` | `42` | DDS domain (cross-platform-safe range) |
 | `UBEROS_AUTH` | `off` | Set to `basic` to enable proxy authentication |
+| `UBEROS_SERVICES` | `ros,simulator,vnc,editor,frontend` | Services the system menu may reset |
 
-### GPU acceleration (Linux + NVIDIA, opt-in)
+### GPU acceleration (opt-in)
+
+NVIDIA (Linux + NVIDIA Container Toolkit):
 
 ```bash
 docker compose -f compose.yaml -f compose.override.gpu.yaml up
 ```
 
+Intel iGPU/dGPU (Linux, `/dev/dri` passthrough — see
+[docs/specs/03-intel-openvino-research.md](docs/specs/03-intel-openvino-research.md)):
+
+```bash
+docker compose -f compose.yaml -f compose.override.intel.yaml up
+```
+
 macOS Docker Desktop has no GPU passthrough; the default software-rendering
-path is used there.
+path is used there. Load only one GPU overlay at a time.
 
 ## Development loop
 
@@ -78,12 +89,16 @@ path is used there.
 ## Security
 
 Authentication is off by default for localhost. Before any non-localhost
-exposure, enable it (NFR N-05):
+exposure, enable it (NFR N-05) — no code edits required:
 
 ```bash
 htpasswd -c config/nginx/.htpasswd admin
-# set UBEROS_AUTH=basic and uncomment auth_basic in services/proxy/nginx.conf
+# set UBEROS_AUTH=basic in .env, then recreate the proxy
+docker compose up -d --build proxy control
 ```
+
+With auth enabled the workspace menu shows a **Logout** action that clears the
+stored credentials and forces re-authentication.
 
 ## Documentation
 

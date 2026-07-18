@@ -7,29 +7,75 @@ import { onRosStatus, startRos } from './ros.js';
 // single proxy origin (I-05, I-12). The ROS status panel uses the shared
 // rosbridge connection.
 
+// Resolve a proxy-relative path to an absolute same-origin URL. Golden Layout
+// pop-out windows start life as about:blank, so a root-relative iframe src like
+// "/terminal/" has no origin to resolve against and renders empty (BR-002). An
+// absolute URL renders live content whether the panel lives in the main canvas
+// or a popped-out window.
+function absoluteUrl(path) {
+  return new URL(path, window.location.origin).href;
+}
+
 function makeIframe(src) {
   const frame = document.createElement('iframe');
   frame.className = 'panel-frame';
-  frame.src = src;
+  frame.src = absoluteUrl(src);
   // No sandbox attribute: same-origin routing keeps code-server and noVNC
   // working (research RISK-8). allow clipboard for editor/terminal ergonomics.
   frame.setAttribute('allow', 'clipboard-read; clipboard-write');
   return frame;
 }
 
+// Panel registry (BR-001, BR-005, BR-009). Data-driven so the system menu can
+// list, hide/show, reopen, and pop out panels without hard-coding each type,
+// and so future panels plug in by adding an entry here.
+export const PANEL_DEFS = {
+  simulator: {
+    componentType: 'simulator',
+    title: 'Simulator',
+    url: '/novnc/vnc.html?autoconnect=true&resize=scale&path=novnc/websockify',
+    popout: true,
+    singleton: true,
+  },
+  terminal: {
+    componentType: 'terminal',
+    title: 'Terminal',
+    url: '/terminal/',
+    popout: true,
+    singleton: false, // operators can spawn many independent PTYs (BR-003).
+  },
+  editor: {
+    componentType: 'editor',
+    title: 'Code Editor',
+    url: '/editor/',
+    popout: true,
+    singleton: true,
+  },
+  'ros-status': {
+    componentType: 'ros-status',
+    title: 'ROS Status',
+    popout: false,
+    singleton: true,
+  },
+};
+
+// Absolute pop-out URL for a panel type, or null when it is not iframe-backed.
+export function popoutUrl(type) {
+  const def = PANEL_DEFS[type];
+  return def?.url ? absoluteUrl(def.url) : null;
+}
+
 export function buildSimulatorPanel(el) {
   // noVNC served under /novnc/, bridging to websockify.
-  el.appendChild(
-    makeIframe('/novnc/vnc.html?autoconnect=true&resize=scale&path=novnc/websockify')
-  );
+  el.appendChild(makeIframe(PANEL_DEFS.simulator.url));
 }
 
 export function buildTerminalPanel(el) {
-  el.appendChild(makeIframe('/terminal/'));
+  el.appendChild(makeIframe(PANEL_DEFS.terminal.url));
 }
 
 export function buildEditorPanel(el) {
-  el.appendChild(makeIframe('/editor/'));
+  el.appendChild(makeIframe(PANEL_DEFS.editor.url));
 }
 
 export function buildRosStatusPanel(el) {
@@ -95,27 +141,82 @@ function escapeHtml(s) {
   return s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
 }
 
-// Default first-launch layout: four panels (F-16).
-export const defaultLayout = {
-  root: {
-    type: 'row',
-    content: [
-      {
-        type: 'column',
-        width: 60,
-        content: [
-          { type: 'component', componentType: 'simulator', title: 'Simulator' },
-          { type: 'component', componentType: 'terminal', title: 'Terminal' },
-        ],
-      },
-      {
-        type: 'column',
-        width: 40,
-        content: [
-          { type: 'component', componentType: 'editor', title: 'Code Editor' },
-          { type: 'component', componentType: 'ros-status', title: 'ROS Status' },
-        ],
-      },
-    ],
+function comp(type, width) {
+  const def = PANEL_DEFS[type];
+  const node = { type: 'component', componentType: type, title: def.title };
+  if (width) node.width = width;
+  return node;
+}
+
+// Four predefined layouts the operator can apply from the menu (BR-006):
+// default (four equal), simulator enlarged, code editor enlarged, terminal
+// enlarged. Each preset is a full Golden Layout config passed to loadLayout().
+export const LAYOUTS = {
+  default: {
+    root: {
+      type: 'row',
+      content: [
+        {
+          type: 'column',
+          width: 50,
+          content: [comp('simulator'), comp('terminal')],
+        },
+        {
+          type: 'column',
+          width: 50,
+          content: [comp('editor'), comp('ros-status')],
+        },
+      ],
+    },
+  },
+  simulator: {
+    root: {
+      type: 'row',
+      content: [
+        comp('simulator', 70),
+        {
+          type: 'column',
+          width: 30,
+          content: [comp('editor'), comp('terminal'), comp('ros-status')],
+        },
+      ],
+    },
+  },
+  editor: {
+    root: {
+      type: 'row',
+      content: [
+        comp('editor', 70),
+        {
+          type: 'column',
+          width: 30,
+          content: [comp('simulator'), comp('terminal'), comp('ros-status')],
+        },
+      ],
+    },
+  },
+  terminal: {
+    root: {
+      type: 'row',
+      content: [
+        comp('terminal', 70),
+        {
+          type: 'column',
+          width: 30,
+          content: [comp('simulator'), comp('editor'), comp('ros-status')],
+        },
+      ],
+    },
   },
 };
+
+// Menu-facing preset list (BR-006).
+export const LAYOUT_PRESETS = [
+  { key: 'default', label: 'Default — four equal panels' },
+  { key: 'simulator', label: 'Simulator enlarged' },
+  { key: 'editor', label: 'Code editor enlarged' },
+  { key: 'terminal', label: 'Terminal enlarged' },
+];
+
+// Default first-launch layout: four equal panels (F-16, BR-006).
+export const defaultLayout = LAYOUTS.default;

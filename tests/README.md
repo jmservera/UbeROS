@@ -2,7 +2,10 @@
 # UberOS Acceptance Tests (WP-15)
 
 Machine-verification of the six Initial Success Criteria (S1–S6) from
-[`docs/specs/01-Init.md`](../docs/specs/01-Init.md) against a **running** stack.
+[`docs/specs/01-Init.md`](../docs/specs/01-Init.md) and the workspace-management
+criteria (S7–S9) from
+[`docs/brds/uberos-workspace-management-brd.md`](../docs/brds/uberos-workspace-management-brd.md)
+against a **running** stack.
 
 ## Prerequisites
 
@@ -43,5 +46,8 @@ proxy port.
 | S4 | Simulator GUI visible in noVNC | Non-blank noVNC canvas within 30s (> 5% non-black pixels) | `acceptance/s4-novnc-frame.spec.js` |
 | S5 | Pop-out does not terminate the session | All services stay healthy after a detached window closes | `acceptance/s5-popout-isolation.spec.js` |
 | S6 | Editor opens, edits, saves in the ROS workspace | A file written via the editor container is readable from the ROS container | `acceptance/s6-editor-workspace.spec.js` |
+| S7 | System menu recovers/hides/rearranges panels | Close+reopen a panel, add a terminal, apply a layout via the menu (BR-001/003/005/006) | `acceptance/s7-system-menu.spec.js` |
+| S8 | Optional auth toggles; health stays open | `/healthz` always 200; `/control/config` reports auth mode; `/logout` challenges (BR-008/010) | `acceptance/s8-auth-toggle.spec.js` |
+| S9 | Individual service reset | Restart one allowlisted service to healthy; others keep running; non-allowlisted rejected (BR-007) | `acceptance/s9-service-reset.spec.js` |
 
 S4 also exercises SPIKE-A P5 (software-rendered Gazebo reaching a browser frame).
