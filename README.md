@@ -69,11 +69,18 @@ NVIDIA (Linux + NVIDIA Container Toolkit):
 docker compose -f compose.yaml -f compose.override.gpu.yaml up
 ```
 
-Intel iGPU/dGPU (Linux, `/dev/dri` passthrough — see
+Intel iGPU/dGPU (native Linux, `/dev/dri` passthrough — see
 [docs/specs/03-intel-openvino-research.md](docs/specs/03-intel-openvino-research.md)):
 
 ```bash
 docker compose -f compose.yaml -f compose.override.intel.yaml up
+```
+
+Windows (Docker Desktop / WSL2) — the GPU is exposed as `/dev/dxg`, not
+`/dev/dri`, so use the WSL overlay (vendor-neutral: Intel/AMD/NVIDIA):
+
+```bash
+docker compose -f compose.yaml -f compose.override.wsl.yaml up
 ```
 
 macOS Docker Desktop has no GPU passthrough; the default software-rendering

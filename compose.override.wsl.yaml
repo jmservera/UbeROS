@@ -1,0 +1,47 @@
+# GPU acceleration overlay for WSL2 (Windows host, Docker Desktop WSL2 backend).
+# Usage: docker compose -f compose.yaml -f compose.override.wsl.yaml up
+#
+# WSL2 does NOT expose the GPU as a DRI device: there is no /dev/dri. Instead it
+# exposes the DirectX kernel device /dev/dxg and ships the Windows GPU user-mode
+# driver under /usr/lib/wsl. Gazebo's OGRE renderer reaches the GPU through
+# Mesa's D3D12 (dozen) Gallium driver, which talks to /dev/dxg via libdxcore.
+# This works for Intel, AMD, and NVIDIA on WSL2 alike (it is vendor-neutral),
+# so it is the correct overlay on Windows instead of compose.override.intel.yaml
+# (which needs /dev/dri and only exists on native Linux).
+#
+# Reference: Intel Community "Cannot get /dev/dri to appear in WSL 2" — the Intel
+# moderator confirms WSL2 uses /dev/dxg, not /dev/dri (see
+# docs/specs/03-intel-openvino-research.md, "WSL2 (Windows): /dev/dxg not /dev/dri").
+#
+# Requirements (host-specific):
+#   - Windows 10/11 with WSL2 and a recent WSL kernel (`wsl --update`).
+#   - Docker Desktop using the WSL2 backend (so /dev/dxg and /usr/lib/wsl exist
+#     inside the docker VM). Native-Linux and macOS hosts must NOT load this
+#     overlay — they have no /dev/dxg and should use the intel/nvidia overlay or
+#     the default software path.
+#   - The simulator image's Mesa must include the d3d12 Gallium driver
+#     (d3d12_dri.so, shipped with Mesa >= 22 / current Ubuntu libgl1-mesa-dri).
+#     If it is missing, rendering falls back to llvmpipe (software).
+
+services:
+  simulator:
+    environment:
+      # Disable software rendering so the Mesa D3D12 stack drives the GPU.
+      LIBGL_ALWAYS_SOFTWARE: ""
+      # Force the D3D12 (dozen) Gallium driver used for WSL2 GPU passthrough.
+      GALLIUM_DRIVER: d3d12
+      # Select the Intel adapter when multiple GPUs are present (optional; drop
+      # or change to match AMD/NVIDIA). Matches on a substring of the adapter name.
+      MESA_D3D12_DEFAULT_ADAPTER_NAME: ${UBEROS_WSL_ADAPTER:-Intel}
+      # WSL mounts the Windows driver libs here; put them on the loader path.
+      # ROS's setup.bash appends to (never replaces) LD_LIBRARY_PATH, so this
+      # entry is preserved after the workspace is sourced at runtime.
+      LD_LIBRARY_PATH: /usr/lib/wsl/lib
+    # The DirectX kernel device is how WSL2 exposes the GPU (there is no /dev/dri).
+    devices:
+      - /dev/dxg:/dev/dxg
+    # The Windows user-mode GPU driver (libdxcore.so, libd3d12.so, ...) lives on
+    # the host under /usr/lib/wsl; mount it read-only so libdxcore can enumerate
+    # the adapter. No render/video group_add is needed: /dev/dxg is world-usable.
+    volumes:
+      - /usr/lib/wsl:/usr/lib/wsl:ro

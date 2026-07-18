@@ -1,4 +1,4 @@
-# Intel GPU acceleration overlay (opt-in, Linux + Intel iGPU/dGPU).
+# Intel GPU acceleration overlay (opt-in, NATIVE Linux + Intel iGPU/dGPU).
 # Usage: docker compose -f compose.yaml -f compose.override.intel.yaml up
 #
 # Passes the host DRI render nodes (/dev/dri) into the simulator so Gazebo
@@ -6,8 +6,13 @@
 # This is the Intel counterpart to compose.override.gpu.yaml (NVIDIA); load
 # only ONE GPU overlay at a time.
 #
+# NOT for WSL2/Windows: WSL2 does not expose /dev/dri — the GPU appears as
+# /dev/dxg instead. On a Windows host (Docker Desktop WSL2 backend) use
+# compose.override.wsl.yaml, not this file. See
+# docs/specs/03-intel-openvino-research.md, "WSL2 (Windows): /dev/dxg not /dev/dri".
+#
 # Requirements (host-specific, see docs/specs/03-intel-openvino-research.md):
-#   - Linux host with an Intel GPU and the kernel i915 driver loaded.
+#   - NATIVE Linux host with an Intel GPU and the kernel i915 driver loaded.
 #   - /dev/dri present on the host (Docker Desktop on macOS/Windows has none,
 #     so those hosts must simply not load this overlay).
 #   - The `render` and `video` group GIDs below are HOST-SPECIFIC. Find them

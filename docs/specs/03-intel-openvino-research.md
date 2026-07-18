@@ -1,6 +1,6 @@
 ---
 title: Intel GPU and OpenVINO Compatibility Research for the Simulator Overlay
-description: Feasibility of an Intel GPU (/dev/dri) rendering overlay for Gazebo and how OpenVINO relates, compared against the existing NVIDIA overlay (BR-012).
+description: Feasibility of an Intel GPU rendering overlay for Gazebo (/dev/dri on native Linux, /dev/dxg on WSL2) and how OpenVINO relates, compared against the existing NVIDIA overlay (BR-012).
 author: jmservera
 ms.date: 07/18/2026
 ms.topic: concept
@@ -18,6 +18,7 @@ starting point, and implement an Intel overlay if feasible.
 
 - [Summary and Feasibility Verdict](#summary-and-feasibility-verdict)
 - [Intel GPU Rendering for Gazebo](#intel-gpu-rendering-for-gazebo)
+- [WSL2 (Windows): /dev/dxg not /dev/dri](#wsl2-windows-devdxg-not-devdri)
 - [OpenVINO: What It Is and How It Relates](#openvino-what-it-is-and-how-it-relates)
 - [Feasibility Comparison vs the NVIDIA Overlay](#feasibility-comparison-vs-the-nvidia-overlay)
 - [Using the Overlay and Verifying It](#using-the-overlay-and-verifying-it)
@@ -43,10 +44,14 @@ Key findings:
   toolkit, not a GL driver. It is a plausible **future** runtime layer for ROS
   perception/AI workloads on Intel iGPU/NPU, but it does not accelerate Gazebo's
   graphics and is deliberately not wired into this overlay.
-- **Host constraints:** The overlay is Linux-only. Docker Desktop on macOS and
-  Windows exposes no `/dev/dri`, so those hosts simply do not load the overlay
-  and continue to run the default software-rendering path from
-  [`compose.yaml`](../../compose.yaml).
+- **Host constraints:** The `/dev/dri` overlay is native-Linux-only. Docker
+  Desktop on macOS exposes no GPU device, so macOS keeps the default
+  software-rendering path. **Windows is different from macOS:** under WSL2 the
+  GPU is exposed as `/dev/dxg` (not `/dev/dri`), so Windows hosts use a separate
+  overlay ([`compose.override.wsl.yaml`](../../compose.override.wsl.yaml)) that
+  passes `/dev/dxg` and the `/usr/lib/wsl` driver libraries and renders through
+  Mesa's D3D12 driver. See
+  [WSL2 (Windows): /dev/dxg not /dev/dri](#wsl2-windows-devdxg-not-devdri).
 
 ## Intel GPU Rendering for Gazebo
 
@@ -110,6 +115,62 @@ getent group render video
 Then set `UBEROS_RENDER_GID` / `UBEROS_VIDEO_GID` in `.env` if they differ from
 the defaults.
 
+## WSL2 (Windows): /dev/dxg not /dev/dri
+
+On a Windows host, Docker Desktop runs containers inside a WSL2 virtual machine,
+and **WSL2 does not implement GPU passthrough the standard Linux way**. There is
+no `i915` DRI device, so `/dev/dri` never appears and the Intel overlay above
+cannot work. Intel's own support forum confirms this: for an Iris Xe iGPU under
+WSL2, the render node to use is **`/dev/dxg`**, not `/dev/dri`
+([Intel Community thread](https://community.intel.com/t5/Graphics/Cannot-get-dev-dri-to-appear-in-WSL-2-for-Intel-Iris-Xe-12th-Gen/m-p/1724203)).
+
+### How WSL2 exposes the GPU
+
+| Piece | Native Linux | WSL2 (Windows) |
+|---|---|---|
+| Device node | `/dev/dri/renderD128` (i915) | `/dev/dxg` (DirectX kernel, `dxgkrnl`) |
+| User-mode driver | Mesa `iris` in the image | Windows GPU driver mounted at `/usr/lib/wsl/lib` |
+| GL path | Mesa `iris` Gallium → i915 | Mesa `d3d12` (dozen) Gallium → `libdxcore` → `/dev/dxg` → Windows driver |
+| Vendor scope | Intel only (this overlay) | Vendor-neutral (Intel/AMD/NVIDIA all via D3D12) |
+
+WSL mounts the Windows user-mode GPU libraries (`libdxcore.so`, `libd3d12.so`,
+`libd3d12core.so`, …) under `/usr/lib/wsl/lib`. A container reaches the GPU by
+(1) getting `/dev/dxg` passed in, (2) mounting `/usr/lib/wsl` so `libdxcore` is
+available, (3) putting `/usr/lib/wsl/lib` on the loader path, and (4) using a
+Mesa build that ships the `d3d12` Gallium driver (`d3d12_dri.so`, Mesa ≥ 22).
+
+### The WSL overlay
+
+Because `/dev/dxg` is vendor-neutral, the overlay is not Intel-specific — the
+same file accelerates AMD and NVIDIA GPUs on WSL2 as well. It is provided as
+[`compose.override.wsl.yaml`](../../compose.override.wsl.yaml):
+
+| Concern | WSL2 requirement | Notes |
+|---|---|---|
+| Device passthrough | `devices: ["/dev/dxg:/dev/dxg"]` | The DirectX kernel device; there is no `/dev/dri` |
+| Driver libraries | `volumes: ["/usr/lib/wsl:/usr/lib/wsl:ro"]` | Windows user-mode GPU driver mounted by WSL |
+| Loader path | `LD_LIBRARY_PATH=/usr/lib/wsl/lib` | ROS `setup.bash` appends, so this entry survives sourcing |
+| GL driver | `GALLIUM_DRIVER=d3d12` + Mesa `d3d12_dri.so` | Selects the dozen/D3D12 path; falls back to `llvmpipe` if absent |
+| Adapter select | `MESA_D3D12_DEFAULT_ADAPTER_NAME=Intel` | Optional; pick a GPU by name substring on multi-GPU hosts |
+| Permissions | none | `/dev/dxg` is world-usable; no `render`/`video` `group_add` needed |
+
+```bash
+docker compose -f compose.yaml -f compose.override.wsl.yaml up
+```
+
+### Prerequisites and caveats
+
+- Run `wsl --update` so the WSL kernel supports GPU passthrough, and confirm the
+  device with `wsl -- ls -l /dev/dxg` (it is present when the GPU + driver are
+  ready).
+- The D3D12 Gallium path is newer and less battle-tested than native `iris`;
+  Gazebo's OGRE renderer works through it, but expect more variance than a
+  native-Linux Intel box. If `d3d12_dri.so` is missing from the image's Mesa,
+  rendering silently falls back to `llvmpipe` (software).
+- **VA-API / QSV media and OpenVINO GPU compute are not covered by `/dev/dxg`.**
+  Hardware video (`iHD`) and OpenCL/Level-Zero compute expect the native Linux
+  Intel stack; on WSL2 those remain future work and are not part of this overlay.
+
 ## OpenVINO: What It Is and How It Relates
 
 **OpenVINO** (Open Visual Inference and Neural network Optimization) is Intel's
@@ -157,7 +218,8 @@ here for rendering is exactly what a later OpenVINO runtime would reuse.
 | Extra packages for basic render | None (toolkit injects driver libs) | None (Mesa already in image) |
 | Compute/inference story | CUDA / TensorRT | OpenVINO (`GPU`/`NPU`), OpenCL, Level Zero |
 | Linux support | Yes | Yes |
-| macOS/Windows (Docker Desktop) | No GPU passthrough | No `/dev/dri`; overlay not loaded |
+| macOS (Docker Desktop) | No GPU passthrough | No GPU passthrough |
+| Windows (Docker Desktop / WSL2) | Use `/dev/dxg` overlay (`compose.override.wsl.yaml`) | No `/dev/dri` in WSL2; use `compose.override.wsl.yaml` |
 | Verification commands | `nvidia-smi`, `glxinfo` | `vainfo`, `clinfo`, `glxinfo -B` |
 
 Both overlays share the same principle: keep the change minimal, touch only the
@@ -206,10 +268,15 @@ software-rendering fallback used when `/dev/dri` is absent or
 
 ### Non-Intel / non-Linux hosts
 
-No action is needed. Because macOS/Windows Docker Desktop exposes no `/dev/dri`
-and non-Intel Linux hosts have no `iris`-capable device, those environments
-simply do not load `compose.override.intel.yaml` and keep the default
-software-rendering behaviour from [`compose.yaml`](../../compose.yaml).
+On **macOS** Docker Desktop exposes no GPU device, so no overlay is loaded and
+the default software-rendering path from [`compose.yaml`](../../compose.yaml) is
+used. On **Windows** the GPU *is* reachable, but through WSL2's `/dev/dxg`
+rather than `/dev/dri` — load
+[`compose.override.wsl.yaml`](../../compose.override.wsl.yaml) instead of the
+Intel overlay (see
+[WSL2 (Windows): /dev/dxg not /dev/dri](#wsl2-windows-devdxg-not-devdri)).
+Non-Intel native-Linux hosts with no `iris`-capable device likewise skip the
+Intel overlay and keep software rendering.
 
 ## References
 
@@ -225,3 +292,6 @@ software-rendering behaviour from [`compose.yaml`](../../compose.yaml).
 | <https://docs.openvino.ai/> | OpenVINO toolkit, device plugins (CPU/GPU/NPU) |
 | <https://docs.docker.com/reference/compose-file/services/#devices> | Compose `devices:` mapping reference |
 | <https://gazebosim.org/docs/latest/sensors/> | Gazebo/OGRE GPU rendering context |
+| [Intel Community: "Cannot get /dev/dri to appear in WSL 2"](https://community.intel.com/t5/Graphics/Cannot-get-dev-dri-to-appear-in-WSL-2-for-Intel-Iris-Xe-12th-Gen/m-p/1724203) | Intel confirms WSL2 uses `/dev/dxg`, not `/dev/dri` |
+| <https://learn.microsoft.com/windows/wsl/gpu-compute> | WSL2 GPU passthrough (`/dev/dxg`, `/usr/lib/wsl`) |
+| <https://docs.mesa3d.org/drivers/d3d12.html> | Mesa D3D12 (dozen) Gallium driver used on WSL2 |
