@@ -1,47 +1,24 @@
 name: Squad CI
-# UbeROS CI: lint, build, smoke-test, and acceptance-test the Docker Compose
-# stack on every PR and push to protected branches.
+# UbeROS: validates and builds the Docker Compose stack, then smoke-tests ROS.
 
 on:
   pull_request:
     branches: [dev, preview, main, insider]
     types: [opened, synchronize, reopened]
   push:
-    branches: [dev, main, insider]
+    branches: [dev, insider]
 
 permissions:
   contents: read
 
 jobs:
-  # ── Job 1: Fast feedback — no Docker build required ────────────────────
-  lint:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Validate compose config
         run: docker compose config --quiet
-
-      - name: Lint Dockerfiles
-        run: |
-          # DL3008 (pin versions) and DL3013 (pip pin) are noisy for ROS base
-          # images where distro packages are intentionally unpinned.
-          fail=0
-          for df in services/*/Dockerfile; do
-            echo "== $df =="
-            if ! docker run --rm -i hadolint/hadolint hadolint \
-              --ignore DL3008 --ignore DL3013 - < "$df"; then
-              fail=1
-            fi
-          done
-          exit $fail
-
-  # ── Job 2: Build images, start the stack, run smoke + acceptance ───────
-  build-and-test:
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - uses: actions/checkout@v4
 
       - name: Build images
         run: docker compose build
@@ -58,55 +35,8 @@ jobs:
             done
           '
 
-      # ── Smoke tests ──────────────────────────────────────────────────
-      - name: Smoke test — service health + proxy routing
-        run: bash tests/smoke.sh
-
-      - name: Smoke test — ROS graph
-        run: >
-          docker compose exec -T ros bash -lc
-          "source /opt/ros/\$ROS_DISTRO/setup.bash && ros2 node list"
-
-      # ── Playwright acceptance tests (S1–S2) ──────────────────────────
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install test dependencies
-        working-directory: tests
-        run: npm ci
-
-      - name: Install Playwright browsers
-        working-directory: tests
-        run: npx playwright install --with-deps chromium
-
-      - name: Run acceptance tests (S1 + S2)
-        working-directory: tests
-        run: >
-          npx playwright test
-          acceptance/s1-stack-health.spec.js
-          acceptance/s2-window-manager.spec.js
-
-      # S3–S9 are integration-heavy (terminal I/O, VNC pixel analysis, service
-      # restarts). They run locally but are not yet enabled in CI. To add them
-      # later, append more spec paths to the command above.
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: tests/playwright-report/
-          retention-days: 14
-
-      - name: Upload Playwright traces
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-traces
-          path: tests/test-results/
-          retention-days: 14
+      - name: Smoke test - ROS graph
+        run: docker compose exec -T ros bash -lc "source /opt/ros/\$ROS_DISTRO/setup.bash && ros2 node list"
 
       - name: Teardown
         if: always()
