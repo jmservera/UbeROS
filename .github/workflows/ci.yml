@@ -19,28 +19,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install hadolint
-        run: |
-          curl -sL -o /tmp/hadolint \
-            https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64
-          EXPECTED=$(curl -sL \
-            https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64.sha256 \
-            | awk '{print $1}')
-          echo "$EXPECTED  /tmp/hadolint" | sha256sum -c -
-          sudo install -m 0755 /tmp/hadolint /usr/local/bin/hadolint
-
       - name: Lint Dockerfiles
-        run: |
-          # DL3008 (pin versions) and DL3013 (pip pin) are noisy across these images
-          # because distro/package installs are intentionally unpinned in CI builds.
-          fail=0
-          for df in services/*/Dockerfile; do
-            echo "== $df =="
-            if ! hadolint --ignore DL3008 --ignore DL3013 "$df"; then
-              fail=1
-            fi
-          done
-          exit $fail
+        # Use the official hadolint action pinned to a commit SHA (v3.3.0) for
+        # reproducible, supply-chain-anchored linting instead of downloading the
+        # binary at runtime. `recursive` lints every services/*/Dockerfile.
+        # DL3008 (apt pin versions) and DL3013 (pip pin) are ignored because
+        # distro/package installs are intentionally unpinned in these CI images.
+        uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
+        with:
+          recursive: true
+          ignore: DL3008,DL3013
 
       - name: Lint shell scripts (shellcheck)
         run: |
