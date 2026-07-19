@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   # ── Job 1: Fast feedback — no Docker build required ────────────────────
@@ -27,7 +28,7 @@ jobs:
           fail=0
           for df in services/*/Dockerfile; do
             echo "== $df =="
-            if ! docker run --rm -i hadolint/hadolint:v2.14.0 hadolint \
+            if ! docker run --rm -i hadolint/hadolint:v2.14.0 \
               --ignore DL3008 --ignore DL3013 - < "$df"; then
               fail=1
             fi
@@ -53,8 +54,9 @@ jobs:
       - name: Wait for healthy services
         run: |
           timeout 180 bash -c '
+            set -euo pipefail
             while docker compose ps --format "{{.Service}} {{.Health}}" \
-              | grep -E "starting|unhealthy" >/dev/null; do
+              | grep -Eq "starting|unhealthy"; do
               sleep 5
             done
           '
