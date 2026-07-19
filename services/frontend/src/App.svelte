@@ -196,20 +196,31 @@
     });
   }
 
-  // Re-enable Golden Layout's native pop-out (FR-A1): the header pop-out icon
-  // MOVES the panel into its own window (the original leaves the canvas). With
-  // popInOnClose, closing that window auto-docks the panel back to its origin
-  // (FR-A2). The earlier blank-window bug is avoided by the sub-window guard in
-  // onMount (skip loadLayout when isSubWindow, FR-A5); terminals keep their
-  // shell because the tmux session id travels in component state (FR-A4).
+  // Enable Golden Layout's native pop-out (FR-A1): the header pop-out icon
+  // MOVES the panel into its own window (the original leaves the canvas). The
+  // earlier blank-window bug is avoided by the sub-window guard in onMount
+  // (skip loadLayout when isSubWindow, FR-A5); terminals keep their shell
+  // because the tmux session id travels in component state (FR-A4).
   //
-  // GL v2.6 deprecated settings.showPopoutIcon in favour of header.popout
-  // (a string shows the icon with that tooltip; false hides it). Setting
-  // header.popout explicitly also overrides any stale saved-layout value of
-  // false that may have been written by an earlier build that hid the button.
+  // popInOnClose is OFF: dock-back is now driven by an explicit in-window Dock
+  // button (added in onMount for sub-windows), NOT by GL's automatic dock-back.
+  // GL's native dock-back is bound to the popout window's beforeunload, which
+  // Chrome does not fire reliably for passive panels (Simulator, ROS Status)
+  // that never receive a user gesture — confirmed empirically. With
+  // popInOnClose:false, the Dock button emits GL's 'popIn' event on the child's
+  // layout instance, which the parent BrowserPopout listens for and uses to
+  // re-dock the panel and close the popout — reliable and gesture-independent.
+  // Closing the popout via the OS window button simply leaves the panel closed
+  // (reopen from the Panels menu).
+  //
+  // header.popout is kept ON so the MAIN window still shows the native pop-OUT
+  // icon (FR-A1). GL v2.6 deprecated settings.showPopoutIcon in favour of
+  // header.popout (a string shows the icon with that tooltip; false hides it).
+  // Setting it explicitly also overrides any stale saved-layout value of false
+  // written by an earlier build that hid the button.
   function withNativePopout(cfg) {
     if (cfg) {
-      cfg.settings = { ...(cfg.settings ?? {}), popInOnClose: true };
+      cfg.settings = { ...(cfg.settings ?? {}), popInOnClose: false };
       cfg.header = { ...(cfg.header ?? {}), popout: 'pop out' };
     }
     return cfg;
@@ -363,9 +374,9 @@
     // including the `bind:this={container}` element, so popped-out windows come
     // up BLANK. Passing bind/unbind handlers makes init run synchronously and
     // SKIPS the body wipe, preserving the Svelte-managed DOM. GL still sets
-    // window.__glInstance = this in the sub-window, so the parent's dock-back /
-    // popInOnClose behaviour keeps working. We build panels from the same
-    // `factories` map the old registerComponentFactoryFunction loop used.
+    // window.__glInstance = this in the sub-window, so native pop-out/dock-back
+    // keeps working. We build panels from the same `factories` map the old
+    // registerComponentFactoryFunction loop used.
     layout = new GoldenLayout(
       container,
       (componentContainer, itemConfig) => {
@@ -379,6 +390,19 @@
       }
     );
 
+    // GL only auto-reflows an embedded layout to its container when
+    // resizeWithContainerAutomatically is true. For a non-<body> container GL
+    // defaults this to FALSE, so its ResizeObserver (already observing this
+    // container since init()) is a no-op and the layout resizes ONLY when the
+    // app calls updateSize() — which historically happened only in a window
+    // 'resize' handler. That is the root cause of the dock-back-invisible bug:
+    // a panel re-entering the tree on native dock-back was sized mid-reflow and
+    // never re-flowed until the next window resize or splitter/tab drag.
+    // Enabling it here activates GL's own observer to debounce-reflow from the
+    // container's real box on every size change, so dock-back sizes immediately
+    // and the manual window-resize handler is no longer needed.
+    layout.resizeWithContainerAutomatically = true;
+
     // A popped-out panel loads this same app in a subwindow. Golden Layout
     // auto-loads the popped component's config there, so we must NOT restore
     // the saved/default layout (that would clobber the pop-out, BR-002) nor
@@ -386,6 +410,13 @@
     const isSub = layout.isSubWindow;
     if (isSub) {
       document.body.classList.add('uberos-subwindow');
+      // GL's native pop-in button (lm_popin). It emits 'popIn' on this child's
+      // layout; the parent BrowserPopout docks the panel back and (popInOnClose
+      // is false) closes this window. GL only auto-adds it from the indeterminate
+      // sub-window bootstrap, which our determinate constructor skips, so we add
+      // it explicitly. Styled by the imported goldenlayout theme CSS.
+      layout.checkAddDefaultPopinButton?.();
+
       // Title the pop-out window/tab after the panel it holds (e.g. "Terminal",
       // "Code Editor") instead of the static index.html title. In a GL
       // sub-window the popped component is the layout root, so rootItem is the
@@ -434,8 +465,6 @@
       authEnabled = cfg.auth && cfg.auth !== 'off' && cfg.auth !== 'none';
     });
 
-    const onResize = () => layout.updateSize();
-    window.addEventListener('resize', onResize);
     window.addEventListener('click', onWindowClick, true);
 
     // Golden Layout drives splitter resizes and tab reorders by listening for
@@ -456,7 +485,6 @@
     container.addEventListener('touchstart', startDrag, true);
 
     return () => {
-      window.removeEventListener('resize', onResize);
       window.removeEventListener('click', onWindowClick, true);
       container.removeEventListener('mousedown', startDrag, true);
       container.removeEventListener('touchstart', startDrag, true);
