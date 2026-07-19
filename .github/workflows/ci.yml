@@ -1,0 +1,160 @@
+name: CI
+# UbeROS project CI: Dockerfile linting, smoke tests, and Playwright acceptance
+# checks. Separated from squad-ci.yml (managed by squad-cli) so squad upgrades
+# don't overwrite project-specific checks.
+
+on:
+  pull_request:
+    branches: [dev, preview, main, insider]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [dev, main, insider]
+
+permissions:
+  contents: read
+jobs:
+  # ── Job 1: Fast feedback — no Docker build required ────────────────────
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint Dockerfiles
+        # Use the official hadolint action pinned to a commit SHA (v3.3.0) for
+        # reproducible, supply-chain-anchored linting instead of downloading the
+        # binary at runtime. `recursive` lints every services/*/Dockerfile.
+        # DL3008 (apt pin versions) and DL3013 (pip pin) are ignored because
+        # distro/package installs are intentionally unpinned in these CI images.
+        uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
+        with:
+          recursive: true
+          ignore: DL3008,DL3013
+
+      - name: Lint shell scripts (shellcheck)
+        run: |
+          command -v shellcheck >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y shellcheck)
+          shellcheck --severity=warning \
+            services/ros/uberos-term.sh \
+            services/ros/entrypoint.sh \
+            services/vnc/entrypoint.sh \
+            services/simulator/entrypoint.sh \
+            tests/smoke.sh
+
+      - name: Set up Node.js for linting
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Lint JavaScript (ESLint)
+        run: |
+          npm init -y > /dev/null 2>&1
+          npm install --no-save --ignore-scripts eslint@8 > /dev/null 2>&1
+          npx --no-install eslint --no-eslintrc \
+            --env browser,node,es2022 \
+            --parser-options='{"ecmaVersion":2022,"sourceType":"module"}' \
+            --rule '{"no-undef":"off","no-unused-vars":"warn"}' \
+            'services/frontend/src/**/*.js' \
+            'services/frontend/*.config.js' \
+            'services/control/server.js' \
+            'tests/**/*.js'
+
+      - name: Lint CSS (stylelint)
+        run: |
+          npm install --no-save --ignore-scripts stylelint@16 stylelint-config-standard@36 > /dev/null 2>&1
+          # stylelint@16's --config expects a file path (not inline JSON), and it
+          # resolves `extends` relative to the config file, so write it next to
+          # node_modules. selector-class-pattern keeps kebab-case for project
+          # classes but exempts third-party Golden Layout classes (.lm_*); the
+          # empty-line/font-quote rules are stylistic and not enforced here.
+          cat > stylelint.ci.json <<'EOF'
+          {
+            "extends": "stylelint-config-standard",
+            "rules": {
+              "selector-class-pattern": ["^([a-z][a-z0-9]*)(-[a-z0-9]+)*$|^lm_", { "message": "Expected class selector to be kebab-case (Golden Layout lm_* classes exempt)" }],
+              "custom-property-empty-line-before": null,
+              "font-family-name-quotes": null
+            }
+          }
+          EOF
+          npx --no-install stylelint --config stylelint.ci.json \
+            'services/frontend/src/**/*.css'
+
+  # ── Job 2: Build images, start the stack, run smoke + acceptance ───────
+  build-and-test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate compose config
+        run: docker compose config --quiet
+
+      - name: Build images
+        run: docker compose build
+
+      - name: Start services
+        run: docker compose up --detach
+
+      - name: Wait for healthy services
+        run: |
+          timeout 180 bash -c '
+            set -euo pipefail
+            while docker compose ps --format "{{.Service}} {{.State}} {{.Health}}" \
+              | grep -Eq "exited|dead|restarting|starting|unhealthy"; do
+              sleep 5
+            done
+          '
+
+      # ── Smoke tests ──────────────────────────────────────────────────
+      - name: Smoke test — service health + proxy routing
+        run: bash tests/smoke.sh
+
+      - name: Smoke test — ROS graph
+        run: >
+          docker compose exec -T ros bash -lc
+          "source /opt/ros/\$ROS_DISTRO/setup.bash && ros2 node list"
+
+      # ── Playwright acceptance tests (S1–S2) ──────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install test dependencies
+        working-directory: tests
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Run acceptance tests (S1 + S2)
+        working-directory: tests
+        run: >
+          npx playwright test
+          acceptance/s1-stack-health.spec.js
+          acceptance/s2-window-manager.spec.js
+
+      # S3–S9 are integration-heavy (terminal I/O, VNC pixel analysis, service
+      # restarts). They run locally but are not yet enabled in CI. To add them
+      # later, append more spec paths to the command above.
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/playwright-report/
+          retention-days: 14
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: tests/test-results/
+          retention-days: 14
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
