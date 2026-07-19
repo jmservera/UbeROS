@@ -146,9 +146,10 @@ services:
     # /data/users/<uid>/code-server so each user's data and Copilot token are
     # isolated instead of the current single shared coder home.
     # Secret handling (FR-D4): this iteration protects the token at rest only
-    # via volume ownership/permissions (coder-owned volume, single localhost
-    # ingress). Token-at-rest encryption is REQUIRED before any non-localhost or
-    # multi-user exposure — never commit tokens to the repo.
+    # via volume ownership/permissions (coder-owned volumes) and the fact that
+    # the editor port is not host-published (access is routed via the proxy).
+    # Token-at-rest encryption is REQUIRED before any multi-user or untrusted
+    # network exposure — never commit tokens to the repo.
     volumes:
       - ./workspace/src:/ros_ws/src
       - editor-data:/home/coder/.local/share/code-server
