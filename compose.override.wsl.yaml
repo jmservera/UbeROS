@@ -22,6 +22,19 @@
 #   - The simulator image's Mesa must include the d3d12 Gallium driver
 #     (d3d12_dri.so, shipped with Mesa >= 22 / current Ubuntu libgl1-mesa-dri).
 #     If it is missing, rendering falls back to llvmpipe (software).
+#
+# ============================================================================
+# PERFORMANCE WARNING (Theme E finding, 2026-07-19): this overlay makes Gazebo
+# render on the GPU, but the simulator is delivered to the browser by SCREEN-
+# SCRAPING a headless Xvfb framebuffer with x11vnc. On WSL2, GPU rendering forces
+# a per-frame GPU->CPU pixel readback across the /dev/dxg paravirt boundary to
+# get frames into that framebuffer, which is pathologically slow: interactive
+# mouse-to-screen latency in the browser goes from ~1 s (software llvmpipe) to
+# 20 s+ (GPU) — WORSE, not better. For the browser-delivered simulator, the base
+# (software) path is recommended; this overlay is best reserved for compute or a
+# future GPU-encode streaming path. Full analysis and measurement plan:
+# docs/specs/04-gazebo-gpu-wsl2-research.md.
+# ============================================================================
 
 services:
   simulator:
@@ -37,6 +50,31 @@ services:
       # ROS's setup.bash appends to (never replaces) LD_LIBRARY_PATH, so this
       # entry is preserved after the workspace is sourced at runtime.
       LD_LIBRARY_PATH: /usr/lib/wsl/lib
+      #
+      # --- Theme E spike fallback (WSL-only, OPT-IN, currently disabled) -------
+      # If `glxinfo -B` still reports `llvmpipe` on this host, Gazebo's default
+      # ogre2 render engine is likely outrunning Mesa's d3d12 (dozen) GL coverage
+      # on WSL2. The recommended first remediation is to force the older `ogre`
+      # (OGRE 1.x) engine, whose GL requirements dozen is far more likely to
+      # satisfy. See docs/specs/04-gazebo-gpu-wsl2-research.md.
+      #
+      # Option 1 — force the `ogre` engine on the gz sim command line. The base
+      # simulator entrypoint runs `gz sim --verbose 1 "${WORLD}"`; to apply this
+      # fallback, override the service command on this overlay so the render
+      # engine is `ogre` instead of the default `ogre2`, e.g.:
+      #
+      #   command: ["gz", "sim", "--verbose", "1", "--render-engine", "ogre",
+      #             "/simulation/worlds/uberos_default.sdf"]
+      #
+      # (place `command:` under this `simulator:` service, not under environment).
+      #
+      # Option 2 — combine with a GL version override for the D3D12 path. The
+      # base compose pins MESA_GL_VERSION_OVERRIDE=3.3 for the software path;
+      # on dozen this can cap the reported GL version. Raise or clear it here:
+      #
+      #   MESA_GL_VERSION_OVERRIDE: "4.6"
+      #   MESA_GLSL_VERSION_OVERRIDE: "460"
+      # ------------------------------------------------------------------------
     # The DirectX kernel device is how WSL2 exposes the GPU (there is no /dev/dri).
     devices:
       - /dev/dxg:/dev/dxg
