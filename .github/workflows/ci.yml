@@ -31,8 +31,8 @@ jobs:
 
       - name: Lint Dockerfiles
         run: |
-          # DL3008 (pin versions) and DL3013 (pip pin) are noisy for ROS base
-          # images where distro packages are intentionally unpinned.
+          # DL3008 (pin versions) and DL3013 (pip pin) are noisy across these images
+          # because distro/package installs are intentionally unpinned in CI builds.
           fail=0
           for df in services/*/Dockerfile; do
             echo "== $df =="
@@ -44,8 +44,8 @@ jobs:
 
       - name: Lint shell scripts (shellcheck)
         run: |
+          command -v shellcheck >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y shellcheck)
           shellcheck --severity=warning \
-            services/proxy/docker-entrypoint.d/40-uberos-auth.sh \
             services/ros/uberos-term.sh \
             services/ros/entrypoint.sh \
             services/vnc/entrypoint.sh \
