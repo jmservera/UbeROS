@@ -79,6 +79,21 @@ body,
   opacity: 1;
 }
 
+/* Panel collapse/minimize (Theme F, FR-F1). The collapse control adds
+   .uberos-collapsed to a Golden Layout stack: the body is hidden and the stack
+   shrinks to just its header/tab bar. Expanding removes the class, so the stack
+   returns to exactly its previous Golden Layout size. The panel iframe stays
+   mounted, so the workload keeps running and no content is lost. */
+.lm_stack.uberos-collapsed > .lm_items {
+  display: none !important;
+}
+
+.lm_stack.uberos-collapsed {
+  height: 26px !important;
+  min-height: 26px !important;
+  overflow: hidden;
+}
+
 /* A popped-out panel renders this same app in a subwindow; hide the menu bar
    there so the detached panel fills the window (FR-A5, BR-002). */
 body.uberos-subwindow .uberos-titlebar {

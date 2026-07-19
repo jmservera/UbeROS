@@ -141,6 +141,7 @@
   // Pop-out is handled by Golden Layout's native header icon (FR-A1), not a
   // custom button.
   const ADD_BTN_CLASS = 'uberos-add-terminal';
+  const COLLAPSE_BTN_CLASS = 'uberos-collapse';
   let injectScheduled = false;
 
   function eachStack(fn) {
@@ -193,7 +194,43 @@
           })
         );
       }
+
+      // Every panel is collapsible to its header/tab bar (FR-F1). The control
+      // hides the panel body via a CSS class and restores it to the previous
+      // size on expand; the workload keeps running (the iframe stays mounted)
+      // and no content is lost.
+      if (!controls.querySelector('.' + COLLAPSE_BTN_CLASS)) {
+        const collapsed = stack.element?.classList.contains('uberos-collapsed');
+        controls.appendChild(
+          makeHeaderButton(
+            COLLAPSE_BTN_CLASS,
+            collapsed ? '⊞' : '⊟',
+            collapsed ? 'Expand panel' : 'Collapse panel',
+            (e) => {
+              e.stopPropagation();
+              toggleCollapse(stack);
+            }
+          )
+        );
+      }
     });
+  }
+
+  // Collapse a stack to just its header/tab bar, or restore it (FR-F1). Uses a
+  // CSS class so no Golden Layout size state is lost — expanding removes the
+  // class and the stack returns to exactly its previous size. The panel body
+  // (iframe) stays mounted, so the workload keeps running and content is kept.
+  function toggleCollapse(stack) {
+    const el = stack?.element;
+    if (!el) return;
+    const collapsed = el.classList.toggle('uberos-collapsed');
+    const btn = el.querySelector(':scope > .lm_header .' + COLLAPSE_BTN_CLASS);
+    if (btn) {
+      btn.textContent = collapsed ? '⊞' : '⊟';
+      btn.title = collapsed ? 'Expand panel' : 'Collapse panel';
+      btn.setAttribute('aria-label', btn.title);
+    }
+    layout?.updateSize();
   }
 
   // Golden Layout rebuilds headers on structural changes, wiping injected
