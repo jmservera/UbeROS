@@ -1,5 +1,5 @@
 name: Squad CI
-# UbeROS: validates and builds the Docker Compose stack, then smoke-tests ROS.
+# Project type was not detected — configure build/test commands below
 
 on:
   pull_request:
@@ -17,27 +17,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate compose config
-        run: docker compose config --quiet
-
-      - name: Build images
-        run: docker compose build
-
-      - name: Start services
-        run: docker compose up --detach
-
-      - name: Wait for healthy services
+      - name: Build and test
         run: |
-          timeout 180 bash -c '
-            while docker compose ps --format "{{.Service}} {{.Health}}" \
-              | grep -E "starting|unhealthy" >/dev/null; do
-              sleep 5
-            done
-          '
-
-      - name: Smoke test - ROS graph
-        run: docker compose exec -T ros bash -lc "source /opt/ros/\$ROS_DISTRO/setup.bash && ros2 node list"
-
-      - name: Teardown
-        if: always()
-        run: docker compose down -v
+          # TODO: Project type was not detected — add your build/test commands here
+          # Go:            go test ./...
+          # Python:        pip install -r requirements.txt && pytest
+          # .NET:          dotnet test
+          # Java (Maven):  mvn test
+          # Java (Gradle): ./gradlew test
+          echo "No build commands configured — update squad-ci.yml"

@@ -1,7 +1,7 @@
 # UbeROS code editor container (code-server).
 # Serves a browser VS Code experience bound to the shared ROS workspace so
 # edits are immediately visible to the ROS build toolchain (F-15, S6). See WP-7.
-FROM codercom/code-server:latest
+FROM codercom/code-server:4.129.0
 
 USER root
 RUN apt-get update \
