@@ -42,6 +42,40 @@ jobs:
           done
           exit $fail
 
+      - name: Lint shell scripts (shellcheck)
+        run: |
+          shellcheck --severity=warning \
+            services/proxy/docker-entrypoint.d/40-uberos-auth.sh \
+            services/ros/uberos-term.sh \
+            services/ros/entrypoint.sh \
+            services/vnc/entrypoint.sh \
+            services/simulator/entrypoint.sh \
+            tests/smoke.sh
+
+      - name: Set up Node.js for linting
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Lint JavaScript (ESLint)
+        run: |
+          npm init -y > /dev/null 2>&1
+          npm install --no-save eslint@8 @eslint/js@8 > /dev/null 2>&1
+          npx eslint --no-eslintrc \
+            --env browser,node,es2022 \
+            --parser-options=ecmaVersion:2022,sourceType:module \
+            --rule '{"no-undef":"off","no-unused-vars":"warn"}' \
+            'services/frontend/src/**/*.js' \
+            'services/frontend/*.config.js' \
+            'services/control/server.js' \
+            'tests/**/*.js'
+
+      - name: Lint CSS (stylelint)
+        run: |
+          npm install --no-save stylelint stylelint-config-standard > /dev/null 2>&1
+          npx stylelint --config '{"extends":"stylelint-config-standard"}' \
+            'services/frontend/src/**/*.css'
+
   # ── Job 2: Build images, start the stack, run smoke + acceptance ───────
   build-and-test:
     runs-on: ubuntu-latest
