@@ -1,6 +1,6 @@
 ---
 title: Gazebo GPU Acceleration on WSL2 Intel — Research Spike
-description: Why Gazebo falls back to software (llvmpipe) on WSL2 with an Intel Iris Xe despite the /dev/dxg + /usr/lib/wsl D3D12 overlay, a reproducible diagnosis checklist, and ranked candidate fixes (ogre1, Vulkan, GL override) for the WSL overlay.
+description: GPU passthrough for Gazebo on WSL2 Intel works (Mesa D3D12/dozen, accelerated), but interactive rendering through the headless Xvfb + x11vnc screen-scrape pipeline is ~20x slower than software llvmpipe. This spike locates the bottleneck (per-frame GPU-to-CPU framebuffer readback forced by VNC screen-scraping, compounded by damage-less polling) and recommends keeping software rendering for the interactive display while reserving the GPU for compute.
 author: jmservera
 ms.date: 07/19/2026
 ms.topic: concept
@@ -17,27 +17,142 @@ compute passthrough over `/dev/dxg` works — then produce a reproducible path t
 GPU-accelerated rendering or a documented blocker with a recommended
 alternative.
 
-> **Spike status — not tested live on this host.** The write-up below is a
-> reproducible diagnosis + remediation plan, not a confirmed result. This
-> environment cannot run WSL2/GPU workloads, so every command is presented as a
-> checklist an operator runs on the real WSL2 host, with the interpretation of
-> each expected output. The **recommended first fix** (force the `ogre` render
-> engine — see [Candidate reproducible paths](#candidate-reproducible-paths)) is
-> the most likely to work and is staged as commented, WSL-only guidance in the
-> overlay.
+> **Spike status — updated with live results (2026-07-19).** GPU passthrough is
+> confirmed **working**: with the WSL overlay, `glxinfo -B` on `:99` reports the
+> Intel Iris Xe through Mesa's D3D12 (dozen) driver with `Accelerated: yes` and
+> `direct rendering: Yes`. The original "falls back to llvmpipe" question is
+> **resolved** — that earlier fallback was a missing-driver / loader-path issue,
+> not a fundamental block. **A new problem surfaced, though:** with the GPU
+> active, browser mouse-to-screen latency jumps from ~1 s (llvmpipe) to **20 s+**,
+> making the simulator unusable. The spike's focus therefore shifts from "can we
+> reach the GPU?" (yes) to "why is the GPU path slower through VNC, and where is
+> the bottleneck?" — see
+> [Update: GPU renders but interactive latency regresses](#update-gpu-renders-but-interactive-latency-regresses).
 
 ## Table of Contents
 
+- [Update: GPU Renders but Interactive Latency Regresses](#update-gpu-renders-but-interactive-latency-regresses)
+  - [The Rendering to Display Pipeline](#the-rendering-to-display-pipeline)
+  - [Where Is the Bottleneck?](#where-is-the-bottleneck)
+  - [Confirming the Diagnosis](#confirming-the-diagnosis-isolate-each-stage)
+- [Recommendation](#recommendation)
+- [Background: Enabling GPU Passthrough (resolved: works)](#background-enabling-gpu-passthrough-resolved-works)
 - [Problem Statement](#problem-statement)
 - [Why Compute Works but Render Does Not](#why-compute-works-but-render-does-not)
 - [Root-Cause Hypothesis](#root-cause-hypothesis)
 - [Diagnosis Method (Reproducible Checklist)](#diagnosis-method-reproducible-checklist)
 - [Candidate Reproducible Paths](#candidate-reproducible-paths)
-- [Recommendation](#recommendation)
 - [Overlay Change (WSL-only, Additive)](#overlay-change-wsl-only-additive)
 - [Acceptance-Criteria Mapping](#acceptance-criteria-mapping)
 - [Cross-references](#cross-references)
 - [References](#references)
+
+## Update: GPU Renders but Interactive Latency Regresses
+
+The GPU overlay achieves its original goal — Gazebo renders on the Intel iGPU —
+but the interactive experience through the browser gets **dramatically worse**,
+not better:
+
+| Render path | `glxinfo -B` renderer | `Accelerated` | Mouse-to-screen latency | Usable? |
+|---|---|---|---|---|
+| Software (base) | `llvmpipe (LLVM 20.1.2, 256 bits)` | no | ~1 s | Slow but workable |
+| GPU (WSL overlay) | `D3D12 (Intel(R) Iris(R) Xe Graphics)` | yes | **20 s+** | No |
+
+Both runs report the same GL 3.3 / GLSL 3.30 level; the GPU run additionally
+shows ~16 GB usable video memory and `direct rendering: Yes`. So the GPU is
+genuinely rendering — the regression is **not** a rendering-capability problem.
+It is a **data-movement** problem in how rendered frames reach the browser.
+
+### The Rendering to Display Pipeline
+
+```text
+gz sim (ogre2) ──renders──▶ Xvfb :99 framebuffer ──scraped by──▶ x11vnc ──▶ websockify ──▶ noVNC ──▶ browser
+   (GPU or llvmpipe)         (system RAM, 1920x1080)  (-noshm, XGetImage)     └──────── identical in both modes ────────┘
+```
+
+Two facts from [`services/simulator/entrypoint.sh`](../../services/simulator/entrypoint.sh)
+and [`services/vnc/entrypoint.sh`](../../services/vnc/entrypoint.sh) are decisive:
+
+1. **The display is a headless Xvfb software framebuffer in system RAM**
+   (`Xvfb :99 -screen 0 1920x1080x24 +extension GLX`). Nothing scans out to a
+   real GPU display; the pixels only matter once they land in that CPU-side
+   framebuffer.
+2. **x11vnc scrapes that framebuffer** (`-noshm`, so it reads pixels over the X
+   protocol with `XGetImage`) and streams them via websockify/noVNC. This entire
+   VNC path is **byte-for-byte identical** whether Gazebo rendered on the GPU or
+   on llvmpipe.
+
+### Where Is the Bottleneck?
+
+**Logical isolation first.** The only thing that changes between the fast (1 s)
+and slow (20 s) configurations is `GALLIUM_DRIVER=d3d12` plus the GPU device. The
+x11vnc → websockify → noVNC → browser path, the resolution, the scene, and the
+network are all constant. Since VNC is constant **and** performs acceptably with
+llvmpipe, **VNC/noVNC is not the differential bottleneck.** The regression lives
+entirely in the render → framebuffer stage.
+
+**Root cause: per-frame GPU-to-CPU framebuffer readback.** With llvmpipe, ogre2
+renders *directly into the Xvfb framebuffer in system RAM* — the exact memory
+x11vnc scrapes — so there is no transfer. With the D3D12 driver, ogre2 renders
+into a **GPU-side surface**, and every frame must then be **read back from GPU
+memory into the X11 system-memory framebuffer** so x11vnc can scrape it (a
+`glReadPixels` / present-to-pixmap copy). On WSL2 that readback crosses the
+paravirtualized GPU boundary (`/dev/dxg` → the host Windows D3D12 runtime), which
+is slow and effectively synchronous. Paid **every frame**, it stalls the whole
+pipeline — the 20 s lag. In short: **drawing on the GPU is fast, but getting each
+finished frame back out of the GPU and into the CPU framebuffer that VNC scrapes
+is pathologically slow.** The headless-Xvfb + screen-scrape architecture forces
+exactly the one operation (GPU→CPU readback) that WSL2's dozen driver is worst at.
+
+**Compounding factor — damage-less full-screen polling.** x11vnc normally uses
+the X `DAMAGE` extension to learn which small regions changed and read back only
+those. Core X11 (software) drawing generates `DAMAGE`; GPU/GLX rendering into the
+Xvfb drawable often updates pixels *without* producing X `DAMAGE` events, so
+x11vnc cannot tell what changed and falls back to polling the **entire**
+1920×1080 screen — and each poll now triggers a **full-frame** GPU→CPU readback.
+Full-screen readback every cycle multiplies the cost above.
+
+**Why "unified memory: yes" doesn't rescue it.** The Iris Xe shares system RAM,
+so one might expect readback to be free. It is not: the dozen driver still
+performs a driver-level copy with tiling/format conversion and a synchronous
+round-trip through the host D3D12 runtime. It is a logical copy across the
+virtualization boundary, not a zero-copy memory mapping.
+
+**Answer to "is the GPU making VNC worse, or is the render engine slower?":**
+neither the VNC encoder nor the raw render is the culprit. The render engine is
+*faster* on the GPU; VNC is unchanged. The bottleneck is the **readback + scrape**
+stage between them — moving each rendered frame from GPU memory into the
+CPU-side Xvfb framebuffer — which only exists on the GPU path and is punishingly
+slow across WSL2's dozen boundary.
+
+### Confirming the Diagnosis (isolate each stage)
+
+Run these on the WSL2 host with the GPU overlay up, to convert the analysis into
+measured fact:
+
+| # | Measurement | Command (in `simulator`) | If the bottleneck is readback… |
+|---|---|---|---|
+| 1 | Raw GL render rate | `env vblank_mode=0 glxgears` or `GALLIUM_HUD=fps` on `gz sim` | Very high FPS on GPU → drawing is *not* the problem |
+| 2 | CPU profile during interaction | `top -bn1` in `simulator` **and** `vnc` | Xvfb / x11vnc CPU pegged (copy/scrape); `gz sim` GPU mostly idle-waiting |
+| 3 | Readback cost | a `glReadPixels` micro-benchmark at 1920×1080, GPU vs llvmpipe | GPU readback orders of magnitude slower |
+| 4 | Damage vs polling | run x11vnc with `-noxdamage` on **llvmpipe**; if it becomes as slow as GPU, polling+readback is confirmed | llvmpipe + `-noxdamage` regresses → mechanism confirmed |
+| 5 | Resolution sensitivity | drop Xvfb to `1280x720`, retest GPU latency | Latency scales with pixel count → per-frame full-screen readback |
+| 6 | Bypass VNC | compare `gz sim` GUI FPS locally (`GALLIUM_HUD`) vs VNC-observed FPS | Large gap → the loss is in readback/scrape, not render or VNC |
+
+Expected outcome: (1) shows GPU render is fast, (2)/(6) show the time is spent in
+Xvfb/x11vnc pixel movement, and (4)/(5) confirm the damage-less full-screen
+readback mechanism — pinpointing the bottleneck as **readback + scrape**, not the
+render engine and not VNC encoding. The full **Recommendation** follows.
+
+## Background: Enabling GPU Passthrough (resolved: works)
+
+The sections below were the **original** spike: determining whether the GPU could
+be reached at all. That question is now **answered — yes** (see the Update above);
+the earlier `llvmpipe` fallback was a driver / loader-path issue, since resolved.
+They are retained as the reproducible passthrough-enablement reference and stay
+useful if a future image or host regresses to software rendering. Note the
+performance finding above **supersedes** the old recommendation to chase the GPU
+render path for the interactive VNC view.
 
 ## Problem Statement
 
@@ -193,30 +308,52 @@ actually supports, or confuse `ogre2`'s probe.
 
 ## Recommendation
 
-**Try (a) `ogre1` first, combined with clearing/raising the GL override (c).**
+**Keep software (`llvmpipe`) rendering as the default for the interactive
+simulator display on WSL2; do not use GPU rendering for the VNC-scraped view.**
+The GPU overlay reaches the iGPU, but in this headless-Xvfb + x11vnc screen-scrape
+architecture it is *counterproductive*: the mandatory per-frame GPU→CPU readback
+across the WSL2 dozen boundary makes the browser view ~20× slower than software.
+For an interactive, screen-scraped display, llvmpipe — which renders straight into
+the CPU framebuffer that VNC reads — is the correct choice.
 
-Rationale: the failure asymmetry (compute works, GL falls back) plus `ogre2`'s
-elevated GL 3.3+/compute requirements make "the default render engine outruns
-dozen's WSL2 GL coverage" the most probable root cause. Forcing `ogre1` sidesteps
-that entire class of feature gaps with a single, reversible, WSL-only change and
-is the fastest route from `llvmpipe` to the Intel adapter. Escalate to Vulkan (b)
-only if the checklist shows a healthy Vulkan device and `ogre1` still under-serves.
+Reserve the GPU for the workloads it actually helps:
 
-**If even `ogre1` reports `llvmpipe` after confirming `d3d12_dri.so` is present
-(step 4) and `/usr/lib/wsl/lib` is on the loader path (step 3):** treat it as a
-**documented blocker** — Mesa's dozen driver does not yet serve Gazebo's GL needs
-for the Iris Xe on this WSL2 kernel/Mesa combination. Recommended alternative in
-that case: keep the **software-rendering default** on WSL2 (the base
-`compose.yaml` path already works and is correct without the overlay) and run
-GPU-accelerated Gazebo on a **native-Linux Intel host via
-[`compose.override.intel.yaml`](../../compose.override.intel.yaml)** (`/dev/dri`
-+ `iris`), which is the proven path from [doc 03](03-intel-openvino-research.md).
-Re-test the WSL path after the next `wsl --update` and Mesa bump, since dozen's
-GL coverage improves over time.
+1. **Compute** (oneAPI / Level Zero over `/dev/dxg`) — already working and
+   unaffected by this finding; keep using the GPU there.
+2. **A future GPU-encoded streaming path** — the *only* way GPU rendering helps a
+   remote view is to avoid the raw pixel readback by encoding on the GPU and
+   streaming compressed frames. Options, in rough order of effort:
+   - **VirtualGL + TurboVNC**: VirtualGL does an optimized asynchronous PBO
+     readback and fast JPEG; it can help, but on WSL2 dozen the readback still
+     crosses the paravirt boundary — measure before adopting.
+   - **Hardware-encoded streaming (Intel VA-API H.264/AV1) + WebRTC** (for
+     example Selkies-GStreamer, or KasmVNC with GPU): the GPU renders *and*
+     encodes, so no full-frame CPU readback happens. This is how GPU cloud
+     desktops work and is the robust long-term answer, at the cost of replacing
+     x11vnc with a streaming stack.
 
-Because this host cannot be tested live, this document deliberately delivers the
-**reproducible verification (the checklist)** plus the **most likely fix to try
-first (`ogre1`)**, rather than asserting an unverified result.
+**Interim mitigations if GPU rendering must be used for the sim view:**
+
+- Lower the Xvfb resolution (for example `1280x720`) to shrink per-frame readback.
+- Enable MIT-SHM (share the IPC namespace so x11vnc can drop `-noshm`) to speed
+  the CPU-side copy — this reduces scrape cost but does **not** remove the GPU→CPU
+  readback.
+- Confirm/repair `DAMAGE` so x11vnc reads only changed regions instead of polling
+  full-screen (measurement #4).
+
+**Net:** the WSL2 GPU overlay is validated as *functional* (FR-E2 met — the GPU
+renders), but for the browser-delivered simulator it is **not recommended**;
+software rendering stays the default, and true GPU-accelerated remote rendering is
+a larger, separate initiative (GPU-side encode + stream), not a compose-overlay
+toggle. If GPU-accelerated Gazebo is needed with a *local* display, a
+**native-Linux Intel host via
+[`compose.override.intel.yaml`](../../compose.override.intel.yaml)** (`/dev/dri` +
+`iris`, scanning out to a real display) avoids the readback problem entirely.
+
+> The `ogre1` / GL-override notes in [Candidate Reproducible Paths](#candidate-reproducible-paths)
+> remain valid **only** for the (now-resolved) question of reaching the GPU at
+> all. They do not address the readback latency and should not be adopted to
+> "fix" the interactive view — software rendering is the fix there.
 
 ## Overlay Change (WSL-only, Additive)
 
@@ -239,15 +376,19 @@ and non-WSL hosts are entirely unaffected.
 | Requirement | Acceptance | How this spike satisfies it |
 |---|---|---|
 | **FR-E1** GPU diagnosis | Write-up records renderer used, driver present, GL/Vulkan level | Checklist steps 3, 4, 6, 8, 10 capture the renderer string, `d3d12_dri.so` presence, `LD_LIBRARY_PATH`, GL version, and Vulkan device |
-| **FR-E2** GPU path or blocker | `glxinfo -B` reports the Intel adapter, or blocker documented | Ranked candidate paths + explicit blocker/alternative (native-Linux `iris` fallback) |
+| **FR-E2** GPU path or blocker | `glxinfo -B` reports the Intel adapter, or blocker documented | **Met** — GPU passthrough confirmed working (D3D12 Intel Iris Xe, accelerated). A separate performance blocker is documented for the VNC-scraped view (per-frame readback) with the recommended alternative (software rendering now; GPU-encode streaming later) |
 | **FR-E3** Overlay implementation | Native-Linux/NVIDIA overlays unaffected | Only `compose.override.wsl.yaml` changes, and only as commented, opt-in guidance |
-| **NFR-5** Performance | Renderer != `llvmpipe` (if feasible) | Success = step 6 shows the Intel D3D12 adapter, not `llvmpipe` |
+| **NFR-5** Performance | Renderer != `llvmpipe` (if feasible) | **Not feasible for the interactive VNC view** — GPU rendering regresses browser latency ~20x due to per-frame GPU→CPU readback; software `llvmpipe` is the correct default here. GPU perf wins only via a future GPU-encode streaming path or a native-Linux local display |
 | **NFR-4** Compatibility | `docker compose config` valid for base+intel+wsl+nvidia | Overlay change is comments only; compose stays valid |
 
-**Definition of success:** on the WSL2 host, with the stack up under
-`compose.override.wsl.yaml`, `docker compose exec simulator glxinfo -B` reports
-the Intel adapter through Mesa's D3D12 driver (not `llvmpipe`), and `gz sim`
-renders the default world on the GPU.
+**Definition of success (revised):** GPU *reachability* is proven — under
+`compose.override.wsl.yaml`, `docker compose exec simulator glxinfo -B` reports the
+Intel adapter through Mesa's D3D12 driver (not `llvmpipe`). But the *interactive*
+success criterion (a responsive simulator in the browser) is met by **software
+rendering**, not the GPU, on this Xvfb + VNC topology: the GPU path is validated
+as functional yet non-performant for screen-scraped delivery, and the documented
+path to genuine GPU-accelerated remote rendering is a GPU-side encode + stream
+stack (a separate initiative).
 
 ## Cross-references
 
@@ -271,4 +412,8 @@ renders the default world on the GPU.
 | <https://docs.mesa3d.org/envvars.html> | `GALLIUM_DRIVER`, `LIBGL_ALWAYS_SOFTWARE`, `MESA_GL_VERSION_OVERRIDE` semantics |
 | <https://learn.microsoft.com/windows/wsl/gpu-compute> | WSL2 GPU passthrough (`/dev/dxg`, `/usr/lib/wsl`) for compute and graphics |
 | <https://dgpu-docs.intel.com/> | Intel graphics driver / compute runtime documentation |
+| <https://github.com/LibVNC/x11vnc> | x11vnc screen-scraping VNC server: `-noshm`, `-noxdamage`, XDAMAGE vs polling behavior |
+| <https://virtualgl.org/> | VirtualGL: GPU rendering with optimized readback for remote/VNC displays |
+| <https://turbovnc.org/> | TurboVNC: high-performance VNC commonly paired with VirtualGL |
+| <https://github.com/selkies-project/selkies-gstreamer> | GPU hardware-encoded (VA-API/NVENC) WebRTC streaming — the readback-free remote-GPU path |
 | [Intel Community: "Cannot get /dev/dri to appear in WSL 2"](https://community.intel.com/t5/Graphics/Cannot-get-dev-dri-to-appear-in-WSL-2-for-Intel-Iris-Xe-12th-Gen/m-p/1724203) | Intel confirms WSL2 uses `/dev/dxg`, not `/dev/dri` |
