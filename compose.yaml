@@ -23,6 +23,9 @@ volumes:
   ros-home:
   gazebo-home:
   editor-data:
+  # Server-side system settings store for the control service (Theme C). Keeps
+  # config.json across restarts (FR-C2); the schema reserves a user key (FR-C4).
+  control-data:
   x11-socket:
 
 services:
@@ -173,10 +176,15 @@ services:
       UBEROS_SERVICES: ${UBEROS_SERVICES:-ros,simulator,vnc,editor,frontend}
       # Surfaced to the SPA so it knows whether to show Logout (BR-008).
       UBEROS_AUTH: ${UBEROS_AUTH:-off}
+      # Path to the persisted system settings store (Theme C, FR-C2). Lives on
+      # the control-data named volume so settings survive container restarts.
+      UBEROS_CONFIG_FILE: /data/config.json
     volumes:
       # Read/write access to the Docker socket to restart individual services.
       # The API surface is restricted to the allowlist above (see server.js).
       - /var/run/docker.sock:/var/run/docker.sock
+      # Durable store for system settings (config.json). Persists across restarts.
+      - control-data:/data
     networks:
       - web_net
     # Never host-published; reachable only through the proxy (INV-04, WP-13).
