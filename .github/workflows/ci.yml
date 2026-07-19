@@ -12,8 +12,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
-
 jobs:
   # ── Job 1: Fast feedback — no Docker build required ────────────────────
   lint:
