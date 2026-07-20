@@ -79,6 +79,31 @@ jobs:
           npx --no-install stylelint --config stylelint.ci.json \
             'services/frontend/src/**/*.css'
 
+      - name: Check ADR consistency
+        # Keep the ADR set and its index in sync (docs/decisions/README.md is the
+        # source of truth for status). Fails the build if any ADR is missing its
+        # `- Status:` lifecycle line or is not listed in the README index.
+        run: |
+          set -euo pipefail
+          readme="docs/decisions/README.md"
+          fail=0
+          if [ ! -f "$readme" ]; then
+            echo "::error::Missing ADR index $readme"
+            exit 1
+          fi
+          for adr in docs/decisions/ADR-*.md; do
+            base=$(basename "$adr")
+            if ! grep -qE '^- Status:' "$adr"; then
+              echo "::error file=$adr::ADR is missing a '- Status:' lifecycle line"
+              fail=1
+            fi
+            if ! grep -qF "$base" "$readme"; then
+              echo "::error file=$readme::ADR index has no row referencing $base"
+              fail=1
+            fi
+          done
+          exit $fail
+
   # ── Job 2: Build images, start the stack, run smoke + acceptance ───────
   build-and-test:
     runs-on: ubuntu-latest
