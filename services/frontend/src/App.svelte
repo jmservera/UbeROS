@@ -39,7 +39,6 @@
   // Panels that can be hidden/shown and reopened from the menu (BR-001/005).
   const panelDefs = Object.values(PANEL_DEFS);
   const singletonPanels = panelDefs.filter((d) => d.singleton);
-  const popoutPanels = panelDefs.filter((d) => d.popout);
   let openCounts = {}; // componentType -> count of open instances
   let activeMenu = null; // 'panels' | 'layouts' | 'services' | null
   // Terminal docking affinity policy (FR-B4). When on, terminals group only
@@ -338,15 +337,6 @@
     closeMenu();
   }
 
-  // Pop a panel out using Golden Layout's native pop-out, which MOVES the panel
-  // into its own window (the original leaves the canvas, FR-A1) and docks it
-  // back when the window closes (FR-A2). Live content is preserved — a terminal
-  // reconnects to the same tmux session carried in its component state (FR-A4).
-  function popout(type) {
-    firstComponent(type)?.popout?.();
-    closeMenu();
-  }
-
   // Apply the selected theme by toggling a data-theme attribute the global CSS
   // keys off (dark is the default palette; light overrides the CSS variables).
   function applyTheme(theme) {
@@ -633,12 +623,6 @@
               <span class="check">＋</span> Add terminal
               {#if (openCounts.terminal ?? 0) > 0}<span class="badge">{openCounts.terminal}</span>{/if}
             </button>
-            <p class="menu-heading">Pop out (new window)</p>
-            {#each popoutPanels as def}
-              <button class="menu-item" role="menuitem" on:click={() => popout(def.componentType)}>
-                <span class="check">⇗</span> {def.title}
-              </button>
-            {/each}
           </div>
         {/if}
       </div>
