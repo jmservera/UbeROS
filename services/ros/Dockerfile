@@ -49,6 +49,7 @@ WORKDIR /ros_ws
 
 COPY config/dds_discovery.xml /etc/ros/dds_discovery.xml
 COPY entrypoint.sh /entrypoint.sh
+COPY tmux.conf /root/.tmux.conf
 COPY uberos-term.sh /usr/local/bin/uberos-term
 RUN chmod +x /entrypoint.sh /usr/local/bin/uberos-term
 
