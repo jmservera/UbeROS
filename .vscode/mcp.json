@@ -1,0 +1,29 @@
+{
+	"servers": {
+		"context7": {
+			"type": "http",
+			"url": "https://mcp.context7.com/mcp",
+			"headers": {
+				"CONTEXT7_API_KEY": "${input:context7-api-key}"
+			}
+		},
+		"deepwiki": {
+			"url": "https://mcp.deepwiki.com/mcp",
+			"type": "http"
+		},
+		"playwright": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"@playwright/mcp@0.0.78"
+			]
+		}
+	},
+	"inputs": [    {
+      "id": "context7-api-key",
+      "type": "promptString",
+      "description": "Context7 API key",
+      "password": true
+    }]
+}
