@@ -10,6 +10,20 @@
   --uberos-err: #f38ba8;
 }
 
+/* Light theme (Theme C config setting). Applied via data-theme="light" on the
+   document element; overrides the palette variables the whole app keys off. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --uberos-bg: #eff1f5;
+  --uberos-panel: #e6e9ef;
+  --uberos-accent: #1e66f5;
+  --uberos-text: #4c4f69;
+  --uberos-muted: #8c8fa1;
+  --uberos-ok: #40a02b;
+  --uberos-warn: #df8e1d;
+  --uberos-err: #d20f39;
+}
+
 * {
   box-sizing: border-box;
 }

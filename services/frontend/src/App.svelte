@@ -13,9 +13,10 @@
     LAYOUT_PRESETS,
     LAYOUTS,
   } from './lib/panels.js';
-  import { getConfig, getServices, restartService } from './lib/control.js';
+  import { getConfig, getServices, restartService, getSettings, saveSettings } from './lib/control.js';
 
   const LAYOUT_KEY = 'uberos.layout.v1';
+  const LAYOUT_KEYS = Object.keys(LAYOUTS);
 
   // Detect a Golden Layout sub-window from the URL, independent of GL's own
   // one-time isSubWindow check. GL flags pop-out windows with the `gl-window`
@@ -50,6 +51,23 @@
   let serviceBusy = null;
   let statusMsg = '';
   let statusTimer;
+
+  // --- System configuration dialog (Theme C) -----------------------------
+  // Settings persist server-side via the control service (FR-C2). The draft is
+  // an editable copy shown in the dialog; Save validates it (FR-C3), persists
+  // it, and applies live effects (terminal affinity FR-C5, theme).
+  const SETTINGS_DEFAULTS = {
+    defaultLayout: 'default',
+    simulatorAdapter: 'Intel',
+    theme: 'dark',
+    terminalAffinity: true,
+  };
+  let showConfig = false; // dialog visibility (FR-C1)
+  let authMode = 'off'; // current proxy auth mode (read-only display)
+  let settings = { ...SETTINGS_DEFAULTS }; // persisted settings
+  let draft = { ...SETTINGS_DEFAULTS }; // editable copy while dialog is open
+  let settingsUser = 'default'; // reserved key for future per-user scoping (FR-C4)
+  let configError = '';
 
   const factories = {
     simulator: buildSimulatorPanel,
@@ -329,6 +347,83 @@
     closeMenu();
   }
 
+  // Apply the selected theme by toggling a data-theme attribute the global CSS
+  // keys off (dark is the default palette; light overrides the CSS variables).
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+  }
+
+  // Load persisted settings at boot and apply their live effects (FR-C2/FR-C5).
+  async function loadSettings() {
+    const store = await getSettings();
+    settingsUser = store.user ?? 'default';
+    settings = { ...SETTINGS_DEFAULTS, ...(store.settings ?? {}) };
+    terminalAffinity = settings.terminalAffinity; // FR-C5: real end-to-end effect
+    applyTheme(settings.theme);
+    scheduleInject();
+  }
+
+  function openConfig() {
+    draft = { ...settings };
+    configError = '';
+    showConfig = true;
+    closeMenu();
+  }
+
+  function closeConfig() {
+    showConfig = false;
+  }
+
+  // Validate the draft before saving (FR-C3). Server-side validation is the
+  // source of truth; this gives immediate, friendly feedback.
+  function validateDraft() {
+    if (!LAYOUT_KEYS.includes(draft.defaultLayout)) return 'Pick a valid default layout.';
+    if (!['dark', 'light'].includes(draft.theme)) return 'Pick a valid theme.';
+    if ((draft.simulatorAdapter ?? '').trim().length > 64)
+      return 'Simulator adapter name is too long (max 64 chars).';
+    return '';
+  }
+
+  async function saveConfig() {
+    const err = validateDraft();
+    if (err) {
+      configError = err;
+      return;
+    }
+    const next = {
+      defaultLayout: draft.defaultLayout,
+      simulatorAdapter: (draft.simulatorAdapter ?? '').trim(),
+      theme: draft.theme,
+      terminalAffinity: !!draft.terminalAffinity,
+    };
+    try {
+      const store = await saveSettings(next, settingsUser);
+      settings = { ...SETTINGS_DEFAULTS, ...(store.settings ?? next) };
+      flash('Configuration saved');
+    } catch {
+      // Control plane unreachable: keep the values locally so the UI still
+      // reflects the change this session; they just won't survive a restart.
+      settings = { ...next };
+      flash('Saved locally; server persistence failed');
+    }
+    terminalAffinity = settings.terminalAffinity; // FR-C5
+    applyTheme(settings.theme);
+    scheduleInject();
+    showConfig = false;
+  }
+
+  // Reset the draft to built-in defaults (FR-C6); Save persists them.
+  function resetConfig() {
+    draft = { ...SETTINGS_DEFAULTS };
+    configError = '';
+  }
+
+  // Apply the chosen default layout to the canvas immediately for a visible
+  // effect (it also persists on Save and seeds the next fresh load).
+  function applyDefaultLayout() {
+    applyPreset(draft.defaultLayout);
+  }
+
   async function refreshServices() {
     services = await getServices();
   }
@@ -468,9 +563,16 @@
     // Discover whether auth is enabled (controls Logout visibility) and the
     // set of services the menu may reset.
     getConfig().then((cfg) => {
+      authMode = cfg.auth ?? 'off';
       authEnabled = cfg.auth && cfg.auth !== 'off' && cfg.auth !== 'none';
     });
 
+    // Load persisted system settings and apply their effects (Theme C).
+    // Apply even in pop-out sub-windows so the theme stays consistent.
+    loadSettings();
+
+    const onResize = () => layout.updateSize();
+    window.addEventListener('resize', onResize);
     window.addEventListener('click', onWindowClick, true);
 
     // Golden Layout drives splitter resizes and tab reorders by listening for
@@ -587,6 +689,13 @@
         {/if}
       </div>
 
+      <!-- Configuration: open the system settings dialog (FR-C1). -->
+      <button
+        class="menu-button"
+        class:open={showConfig}
+        on:click|stopPropagation={openConfig}
+      >Configuration</button>
+
       <span class="menu-spacer"></span>
       {#if statusMsg}<span class="menu-status" role="status">{statusMsg}</span>{/if}
       {#if authEnabled}
@@ -596,6 +705,66 @@
   </header>
   {/if}
   <div class="uberos-canvas" bind:this={container}></div>
+
+  <!-- System configuration dialog (Theme C, FR-C1..FR-C6). -->
+  {#if showConfig}
+    <div class="uberos-modal-backdrop" role="presentation" on:click|self={closeConfig}>
+      <div class="uberos-modal" role="dialog" aria-modal="true" aria-label="System configuration">
+        <header class="modal-head">
+          <h2>System configuration</h2>
+          <button class="modal-close" aria-label="Close" on:click={closeConfig}>✕</button>
+        </header>
+        <div class="modal-body">
+          <p class="modal-group">Workspace</p>
+          <label class="cfg-row">
+            <span class="cfg-label">Default layout</span>
+            <span class="cfg-control">
+              <select bind:value={draft.defaultLayout}>
+                {#each LAYOUT_PRESETS as preset}
+                  <option value={preset.key}>{preset.label}</option>
+                {/each}
+              </select>
+              <button class="cfg-apply" type="button" on:click={applyDefaultLayout}>Apply now</button>
+            </span>
+          </label>
+          <label class="cfg-row">
+            <span class="cfg-label">Theme</span>
+            <select bind:value={draft.theme}>
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </label>
+
+          <p class="modal-group">Docking</p>
+          <label class="cfg-row cfg-check">
+            <input type="checkbox" bind:checked={draft.terminalAffinity} />
+            <span class="cfg-label">Terminal docking affinity — terminals group only with terminals</span>
+          </label>
+
+          <p class="modal-group">Simulator</p>
+          <label class="cfg-row">
+            <span class="cfg-label">GPU adapter (WSL)</span>
+            <input type="text" bind:value={draft.simulatorAdapter} maxlength="64" placeholder="Intel" />
+          </label>
+          <p class="cfg-hint">Applied at container start via <code>UBEROS_WSL_ADAPTER</code>; restart the simulator to take effect.</p>
+
+          <p class="modal-group">Security</p>
+          <div class="cfg-row">
+            <span class="cfg-label">Proxy auth mode</span>
+            <span class="cfg-readonly">{authMode}</span>
+          </div>
+
+          {#if configError}<p class="cfg-error" role="alert">{configError}</p>{/if}
+        </div>
+        <footer class="modal-foot">
+          <button class="btn-reset" type="button" on:click={resetConfig}>Reset to defaults</button>
+          <span class="foot-spacer"></span>
+          <button class="btn-cancel" type="button" on:click={closeConfig}>Cancel</button>
+          <button class="btn-save" type="button" on:click={saveConfig}>Save</button>
+        </footer>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -766,5 +935,177 @@
     position: relative;
     flex: 1;
     min-height: 0;
+  }
+
+  /* System configuration dialog (Theme C). */
+  .uberos-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .uberos-modal {
+    width: min(30rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 2rem);
+    display: flex;
+    flex-direction: column;
+    background: var(--uberos-panel);
+    border: 1px solid #45475a;
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+
+  .modal-head {
+    display: flex;
+    align-items: center;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid #313244;
+  }
+
+  .modal-head h2 {
+    margin: 0;
+    font-size: 0.95rem;
+    flex: 1;
+  }
+
+  .modal-close {
+    background: transparent;
+    border: 0;
+    color: var(--uberos-muted);
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  .modal-close:hover {
+    color: var(--uberos-text);
+  }
+
+  .modal-body {
+    padding: 0.5rem 0.9rem 0.9rem;
+    overflow: auto;
+  }
+
+  .modal-group {
+    margin: 0.8rem 0 0.3rem;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--uberos-muted);
+  }
+
+  .cfg-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.3rem 0;
+    font-size: 0.83rem;
+  }
+
+  .cfg-label {
+    flex: 1;
+  }
+
+  .cfg-check {
+    align-items: flex-start;
+  }
+
+  .cfg-control {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .uberos-modal select,
+  .uberos-modal input[type='text'] {
+    background: var(--uberos-bg);
+    color: var(--uberos-text);
+    border: 1px solid #45475a;
+    border-radius: 4px;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.82rem;
+  }
+
+  .cfg-apply {
+    background: #313244;
+    color: var(--uberos-text);
+    border: 1px solid #45475a;
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.76rem;
+    cursor: pointer;
+  }
+
+  .cfg-apply:hover {
+    background: #45475a;
+  }
+
+  .cfg-readonly {
+    color: var(--uberos-muted);
+    font-family: "Cascadia Code", "Consolas", monospace;
+  }
+
+  .cfg-hint {
+    margin: 0.2rem 0 0;
+    font-size: 0.72rem;
+    color: var(--uberos-muted);
+  }
+
+  .cfg-hint code {
+    font-size: 0.7rem;
+  }
+
+  .cfg-error {
+    margin: 0.5rem 0 0;
+    color: var(--uberos-err);
+    font-size: 0.78rem;
+  }
+
+  .modal-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.9rem;
+    border-top: 1px solid #313244;
+  }
+
+  .foot-spacer {
+    flex: 1;
+  }
+
+  .btn-reset,
+  .btn-cancel,
+  .btn-save {
+    border-radius: 4px;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border: 1px solid #45475a;
+  }
+
+  .btn-reset {
+    background: transparent;
+    color: var(--uberos-warn);
+  }
+
+  .btn-cancel {
+    background: transparent;
+    color: var(--uberos-text);
+  }
+
+  .btn-save {
+    background: var(--uberos-accent);
+    color: #11111b;
+    border-color: var(--uberos-accent);
+    font-weight: 600;
+  }
+
+  .btn-reset:hover,
+  .btn-cancel:hover {
+    background: #313244;
   }
 </style>

@@ -1,11 +1,14 @@
-name: CI
-# UbeROS project CI: Dockerfile linting, smoke tests, and Playwright acceptance
-# checks. Separated from squad-ci.yml (managed by squad-cli) so squad upgrades
-# don't overwrite project-specific checks.
+name: CI — Lint & Build
+# UbeROS project CI — fast PR-wide gate: Dockerfile/shell/JS/CSS linting plus an
+# image build check (compose config validate + docker compose build). Runs for
+# ANY pull request (all target branches) so every PR verifies lint passes and
+# images still build. Live integration/acceptance tests live in
+# ci-integration.yml, which only runs on protected/preview branches.
+# Separated from squad-ci.yml (managed by squad-cli) so squad upgrades don't
+# overwrite project-specific checks.
 
 on:
   pull_request:
-    branches: [dev, preview, main, insider]
     types: [opened, synchronize, reopened]
   push:
     branches: [dev, main, insider]
@@ -104,11 +107,14 @@ jobs:
           done
           exit $fail
 
-  # ── Job 2: Build images, start the stack, run smoke + acceptance ───────
+
+  # ── Job 2: Build gate — validate compose config + build all images ─────
+  # This is the lightweight "build" half of "lint + build for any PR". It does
+  # NOT start the stack or run live tests — that is ci-integration.yml's job.
   build-and-test:
     runs-on: ubuntu-latest
     needs: lint
-    steps:
+   steps:
       - uses: actions/checkout@v4
 
       - name: Validate compose config
@@ -116,70 +122,3 @@ jobs:
 
       - name: Build images
         run: docker compose build
-
-      - name: Start services
-        run: docker compose up --detach
-
-      - name: Wait for healthy services
-        run: |
-          timeout 180 bash -c '
-            set -euo pipefail
-            while docker compose ps --format "{{.Service}} {{.State}} {{.Health}}" \
-              | grep -Eq "exited|dead|restarting|starting|unhealthy"; do
-              sleep 5
-            done
-          '
-
-      # ── Smoke tests ──────────────────────────────────────────────────
-      - name: Smoke test — service health + proxy routing
-        run: bash tests/smoke.sh
-
-      - name: Smoke test — ROS graph
-        run: >
-          docker compose exec -T ros bash -lc
-          "source /opt/ros/\$ROS_DISTRO/setup.bash && ros2 node list"
-
-      # ── Playwright acceptance tests (S1–S2) ──────────────────────────
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install test dependencies
-        working-directory: tests
-        run: npm ci
-
-      - name: Install Playwright browsers
-        working-directory: tests
-        run: npx playwright install --with-deps chromium
-
-      - name: Run acceptance tests (S1 + S2)
-        working-directory: tests
-        run: >
-          npx playwright test
-          acceptance/s1-stack-health.spec.js
-          acceptance/s2-window-manager.spec.js
-
-      # S3–S9 are integration-heavy (terminal I/O, VNC pixel analysis, service
-      # restarts). They run locally but are not yet enabled in CI. To add them
-      # later, append more spec paths to the command above.
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: tests/playwright-report/
-          retention-days: 14
-
-      - name: Upload Playwright traces
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-traces
-          path: tests/test-results/
-          retention-days: 14
-
-      - name: Teardown
-        if: always()
-        run: docker compose down -v

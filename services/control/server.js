@@ -5,6 +5,9 @@
 //   - report which known services exist and their container health (BR-007)
 //   - restart an INDIVIDUAL compose service without a full stack restart (BR-007)
 //   - tell the SPA whether proxy auth is enabled so it can show Logout (BR-008)
+//   - read/write system-wide settings that persist across restarts (BR-CFG,
+//     Theme C): stored server-side in a JSON file on a mounted volume, with a
+//     reserved `user` key so per-user scoping can be added later (FR-C4).
 //
 // Security posture (this container mounts the Docker socket, so it is hardened):
 //   - Only an ALLOWLIST of service names may ever be restarted; the name is
@@ -13,10 +16,15 @@
 //   - Only two Docker operations are ever issued: list containers (filtered to
 //     this compose project) and restart a container by id. No exec, no create,
 //     no arbitrary container control.
+//   - Settings writes are validated against a strict whitelist (unknown keys
+//     dropped, values type/enum-checked) and go only to a single fixed file
+//     path — no path traversal, no shell.
 //   - The service is on the internal web_net only and is never host-published;
 //     it is reachable solely through the proxy, where auth is enforced.
 import http from 'node:http';
 import { Buffer } from 'node:buffer';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { dirname } from 'node:path';
 
 const DOCKER_SOCKET = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
 const DOCKER_API = process.env.DOCKER_API_VERSION || 'v1.43';
@@ -31,6 +39,85 @@ const ALLOWED_SERVICES = (process.env.UBEROS_SERVICES || 'ros,simulator,vnc,edit
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
+
+// System settings store (Theme C). Persisted server-side to a JSON file on a
+// mounted volume so settings survive reloads AND container restarts (FR-C2).
+const CONFIG_FILE = process.env.UBEROS_CONFIG_FILE || '/data/config.json';
+const LAYOUT_KEYS = ['default', 'simulator', 'editor', 'terminal'];
+const THEMES = ['dark', 'light'];
+const DEFAULT_SETTINGS = Object.freeze({
+  defaultLayout: 'default',
+  simulatorAdapter: 'Intel',
+  theme: 'dark',
+  terminalAffinity: true,
+});
+
+// Whitelist + type/enum validation (FR-C3). Unknown keys are dropped and any
+// invalid value falls back to its default, so a malformed payload can never
+// corrupt the store or inject unexpected keys.
+function sanitizeSettings(input) {
+  const out = { ...DEFAULT_SETTINGS };
+  if (input && typeof input === 'object') {
+    if (LAYOUT_KEYS.includes(input.defaultLayout)) out.defaultLayout = input.defaultLayout;
+    if (typeof input.simulatorAdapter === 'string' && input.simulatorAdapter.trim().length <= 64)
+      out.simulatorAdapter = input.simulatorAdapter.trim();
+    if (THEMES.includes(input.theme)) out.theme = input.theme;
+    if (typeof input.terminalAffinity === 'boolean') out.terminalAffinity = input.terminalAffinity;
+  }
+  return out;
+}
+
+// Read the settings store, falling back to defaults if the file is missing or
+// unreadable. The `user` key is reserved for future per-user scoping (FR-C4).
+async function readSettingsStore() {
+  try {
+    const parsed = JSON.parse(await readFile(CONFIG_FILE, 'utf8'));
+    return {
+      user: typeof parsed.user === 'string' ? parsed.user : 'default',
+      version: 1,
+      settings: sanitizeSettings(parsed.settings),
+    };
+  } catch {
+    return { user: 'default', version: 1, settings: { ...DEFAULT_SETTINGS } };
+  }
+}
+
+// Validate and persist the settings store to the fixed file path.
+async function writeSettingsStore(user, settings) {
+  const store = {
+    user: typeof user === 'string' && user.length <= 64 ? user : 'default',
+    version: 1,
+    settings: sanitizeSettings(settings),
+  };
+  await mkdir(dirname(CONFIG_FILE), { recursive: true });
+  await writeFile(CONFIG_FILE, JSON.stringify(store, null, 2), 'utf8');
+  return store;
+}
+
+// Read and JSON-parse a request body with a hard size cap (no external deps).
+function readJsonBody(req, { limitBytes = 16 * 1024 } = {}) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on('data', (c) => {
+      size += c.length;
+      if (size > limitBytes) {
+        req.destroy();
+        reject(Object.assign(new Error('payload too large'), { statusCode: 413 }));
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on('end', () => {
+      try {
+        resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {});
+      } catch {
+        reject(Object.assign(new Error('invalid json'), { statusCode: 400 }));
+      }
+    });
+    req.on('error', reject);
+  });
+}
 
 // Minimal Docker Engine API client over the unix socket (no external deps).
 function dockerRequest(method, path, { timeoutMs = 60000 } = {}) {
@@ -137,6 +224,16 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && path === '/services') {
       return sendJson(res, 200, { services: await serviceStatus() });
+    }
+
+    // System settings store (Theme C). GET returns the persisted settings (or
+    // defaults); PUT validates and persists them so they survive a restart.
+    if (req.method === 'GET' && path === '/config/settings') {
+      return sendJson(res, 200, await readSettingsStore());
+    }
+    if (req.method === 'PUT' && path === '/config/settings') {
+      const body = await readJsonBody(req);
+      return sendJson(res, 200, await writeSettingsStore(body?.user, body?.settings));
     }
 
     // POST /services/{name}/restart

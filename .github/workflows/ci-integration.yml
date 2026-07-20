@@ -1,0 +1,104 @@
+name: CI — Integration & Acceptance
+# UbeROS project CI — heavyweight live integration gate. Builds the images,
+# starts the full Docker Compose stack, waits for healthy services, runs smoke
+# tests + the ROS graph check, and executes Playwright acceptance tests (S1+S2).
+#
+# Unlike ci.yml (lint + build, runs for ANY PR), this workflow ONLY runs on the
+# protected/preview branches — PRs targeting dev/preview/main/insider and pushes
+# to dev/main/insider. Arbitrary PRs to feature branches do NOT pay this cost;
+# the fast lint+build gate in ci.yml covers those.
+#
+# GitHub Actions workflows don't share state, so this workflow builds the images
+# itself (docker compose build) before starting the stack — it does not rely on
+# the build job in ci.yml.
+# Separated from squad-ci.yml (managed by squad-cli) so squad upgrades don't
+# overwrite project-specific checks.
+
+on:
+  pull_request:
+    branches: [dev, preview, main, insider]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [dev, main, insider]
+
+permissions:
+  contents: read
+jobs:
+  # ── Build images, start the stack, run smoke + acceptance ──────────────
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate compose config
+        run: docker compose config --quiet
+
+      - name: Build images
+        run: docker compose build
+
+      - name: Start services
+        run: docker compose up --detach
+
+      - name: Wait for healthy services
+        run: |
+          timeout 180 bash -c '
+            set -euo pipefail
+            while docker compose ps --format "{{.Service}} {{.State}} {{.Health}}" \
+              | grep -Eq "exited|dead|restarting|starting|unhealthy"; do
+              sleep 5
+            done
+          '
+
+      # ── Smoke tests ──────────────────────────────────────────────────
+      - name: Smoke test — service health + proxy routing
+        run: bash tests/smoke.sh
+
+      - name: Smoke test — ROS graph
+        run: >
+          docker compose exec -T ros bash -lc
+          "source /opt/ros/\$ROS_DISTRO/setup.bash && ros2 node list"
+
+      # ── Playwright acceptance tests (S1–S2) ──────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install test dependencies
+        working-directory: tests
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Run acceptance tests (S1 + S2)
+        working-directory: tests
+        run: >
+          npx playwright test
+          acceptance/s1-stack-health.spec.js
+          acceptance/s2-window-manager.spec.js
+
+      # S3–S9 are integration-heavy (terminal I/O, VNC pixel analysis, service
+      # restarts). They run locally but are not yet enabled in CI. To add them
+      # later, append more spec paths to the command above.
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/playwright-report/
+          retention-days: 14
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: tests/test-results/
+          retention-days: 14
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
