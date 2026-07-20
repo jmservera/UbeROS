@@ -478,16 +478,31 @@
     // window.__glInstance = this in the sub-window, so native pop-out/dock-back
     // keeps working. We build panels from the same `factories` map the old
     // registerComponentFactoryFunction loop used.
+    // Panel builders may return a cleanup function to release subscriptions
+    // when the panel is torn down (pop-out, dock-back, or close). Keyed by
+    // componentContainer so the unbind handler can look them up efficiently.
+    const panelCleanups = new Map();
+
     layout = new GoldenLayout(
       container,
       (componentContainer, itemConfig) => {
         const build = factories[itemConfig.componentType];
-        if (build) build(componentContainer.element, componentContainer);
+        if (build) {
+          const cleanup = build(componentContainer.element, componentContainer);
+          if (typeof cleanup === 'function') {
+            panelCleanups.set(componentContainer, cleanup);
+          }
+        }
         return { component: undefined, virtual: false };
       },
-      () => {
-        // No explicit teardown needed: GL removes the container element's DOM
-        // when the component is unbound (panel closed / popped out).
+      (componentContainer) => {
+        // Run panel-specific teardown (e.g. unsubscribe onRosStatus / rosout)
+        // so listeners do not accumulate across pop-out / dock-back rebuilds.
+        const cleanup = panelCleanups.get(componentContainer);
+        if (cleanup) {
+          cleanup();
+          panelCleanups.delete(componentContainer);
+        }
       }
     );
 
@@ -600,6 +615,7 @@
       clearTimeout(statusTimer);
       channel?.close();
       layout.destroy();
+      panelCleanups.clear(); // clear any panels not unbound during destroy
     };
   });
 </script>

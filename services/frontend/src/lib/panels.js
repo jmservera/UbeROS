@@ -100,6 +100,10 @@ export function buildEditorPanel(el) {
   el.appendChild(makeIframe(PANEL_DEFS.editor.url));
 }
 
+// Returns a cleanup function that removes the onRosStatus listener and
+// unsubscribes the active /rosout topic. The caller (GL unbind handler) must
+// invoke it when the panel is torn down — e.g. on pop-out or dock-back — to
+// prevent listener/subscription accumulation across rebuilds (FR-A3).
 export function buildRosStatusPanel(el) {
   const body = document.createElement('div');
   body.className = 'panel-body';
@@ -127,11 +131,22 @@ export function buildRosStatusPanel(el) {
   const stateText = header.querySelector('#ros-state');
   const logLines = [];
 
-  onRosStatus(({ status, ros }) => {
+  // Track the active /rosout subscription so we can unsubscribe it when the
+  // connection drops and reconnects, and when the panel is destroyed.
+  let currentRosout = null;
+
+  const unsubStatus = onRosStatus(({ status, ros }) => {
     stateText.textContent = status;
     dot.className = 'status-dot ' + (status === 'connected' ? 'ok' : status === 'error' || status === 'closed' ? 'err' : 'warn');
 
     if (status === 'connected' && ros) {
+      // Drop any previous /rosout subscription before creating a new one to
+      // avoid duplicate message handlers when the bridge reconnects.
+      if (currentRosout) {
+        currentRosout.unsubscribe();
+        currentRosout = null;
+      }
+
       ros.getNodes(
         (nodes) => {
           nodesList.textContent = nodes.length ? nodes.join('\n') : '(none)';
@@ -153,8 +168,17 @@ export function buildRosStatusPanel(el) {
           .map((l) => `<p class="log-line">${escapeHtml(l)}</p>`)
           .join('');
       });
+      currentRosout = rosout;
     }
   });
+
+  return () => {
+    unsubStatus();
+    if (currentRosout) {
+      currentRosout.unsubscribe();
+      currentRosout = null;
+    }
+  };
 }
 
 // Small helpers -----------------------------------------------------------
