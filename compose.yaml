@@ -23,15 +23,12 @@ volumes:
   ros-home:
   gazebo-home:
   editor-data:
-<<<<<<< HEAD
-  # Server-side system settings store for the control service (Theme C). Keeps
-  # config.json across restarts (FR-C2); the schema reserves a user key (FR-C4).
-  control-data:
-=======
   # code-server machine/config dir (~/.config/code-server) — persists config
   # (e.g. config.yaml) separately from user-data so it survives restarts too.
   editor-config:
->>>>>>> origin/squad/theme-b-terminal-affinity
+  # Server-side system settings store for the control service (Theme C). Keeps
+  # config.json across restarts (FR-C2); the schema reserves a user key (FR-C4).
+  control-data:
   x11-socket:
 
 services:

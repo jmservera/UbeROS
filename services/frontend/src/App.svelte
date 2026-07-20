@@ -567,15 +567,12 @@
       authEnabled = cfg.auth && cfg.auth !== 'off' && cfg.auth !== 'none';
     });
 
-<<<<<<< HEAD
     // Load persisted system settings and apply their effects (Theme C). Skip in
     // pop-out sub-windows, which only render a single detached panel.
     if (!isSub) loadSettings();
 
     const onResize = () => layout.updateSize();
     window.addEventListener('resize', onResize);
-=======
->>>>>>> origin/squad/theme-b-terminal-affinity
     window.addEventListener('click', onWindowClick, true);
 
     // Golden Layout drives splitter resizes and tab reorders by listening for
