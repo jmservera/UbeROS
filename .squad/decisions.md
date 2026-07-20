@@ -42,7 +42,7 @@ sufficient; the body wipe was the real culprit.
 
 **Decision / fix:** Use the GL v2 *determinate constructor* pattern — pass a
 `bindComponentEventHandler` (and `unbindComponentEventHandler`) to the
-`GoldenLayout` constructor. This sets `_bindComponentEventHanlderPassedInConstructor
+`GoldenLayout` constructor. This sets `_bindComponentEventHandlerPassedInConstructor
 = true`, which makes init run synchronously and SKIPS the body wipe, preserving the
 Svelte-managed DOM. The bind handler dispatches to the existing `factories` map to
 build panels; the old `registerComponentFactoryFunction` loop was removed. GL still
