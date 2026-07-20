@@ -1,6 +1,7 @@
 # ADR-003: Terminal Transport
 
-- Status: Accepted
+- Status: Accepted — Implemented
+- Implementation: `services/ros` (ttyd 1.7.7 + tmux via `uberos-term.sh`); terminal ports stay internal
 - Date: 2026-07-17
 - Deciders: jmservera (product), Switch (technical)
 - Related: PRD U-D3, research R7

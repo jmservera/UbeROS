@@ -40,3 +40,24 @@ export async function getServices() {
 export async function restartService(name) {
   return json(`/services/${encodeURIComponent(name)}/restart`, { method: 'POST' });
 }
+
+// System settings persisted server-side (Theme C, FR-C2). getSettings returns
+// { user, version, schemaVersion, settings }; on failure it yields empty
+// settings so the SPA falls back to its built-in defaults.
+export async function getSettings() {
+  try {
+    return await json('/config/settings');
+  } catch {
+    return { user: 'default', version: 1, schemaVersion: 1, settings: {} };
+  }
+}
+
+// Persist system settings server-side (FR-C2). The reserved `user` key lets a
+// future multi-user model scope settings per user without a redesign (FR-C4).
+export async function saveSettings(settings, user = 'default') {
+  return json('/config/settings', {
+    method: 'PUT',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user, settings }),
+  });
+}

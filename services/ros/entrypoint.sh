@@ -7,6 +7,7 @@ set -euo pipefail
 # ROS setup scripts reference unbound variables (e.g. AMENT_TRACE_SETUP_FILES),
 # so relax nounset while sourcing them, then restore it.
 set +u
+# shellcheck source=/dev/null
 source "/opt/ros/${ROS_DISTRO}/setup.bash"
 if [ -f /ros_ws/install/setup.bash ]; then
   # shellcheck disable=SC1091

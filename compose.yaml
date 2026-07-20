@@ -23,6 +23,12 @@ volumes:
   ros-home:
   gazebo-home:
   editor-data:
+  # code-server machine/config dir (~/.config/code-server) — persists config
+  # (e.g. config.yaml) separately from user-data so it survives restarts too.
+  editor-config:
+  # Server-side system settings store for the control service (Theme C). Keeps
+  # config.json across restarts (FR-C2); the schema reserves a user key (FR-C4).
+  control-data:
   x11-socket:
 
 services:
@@ -134,9 +140,23 @@ services:
     # The code-server image entrypoint already invokes the code-server binary,
     # so these are argument flags only (not prefixed with `code-server`).
     command: ["--bind-addr", "0.0.0.0:8443", "--auth", "none", "--disable-telemetry", "/ros_ws/src"]
+    # Editor persistence (FR-D1/FR-D2): user-data, installed extensions, and VS
+    # Code secret storage (which holds the GitHub Copilot login) all live under
+    # ~/.local/share/code-server, so persisting it via `editor-data` keeps the
+    # editor authenticated and configured across restarts. Machine/config state
+    # (~/.config/code-server) persists via `editor-config`.
+    # Future multi-user model (FR-D3): scope these per user, e.g. mount under
+    # /data/users/<uid>/code-server so each user's data and Copilot token are
+    # isolated instead of the current single shared coder home.
+    # Secret handling (FR-D4): this iteration protects the token at rest only
+    # via volume ownership/permissions (coder-owned volumes) and the fact that
+    # the editor port is not host-published (access is routed via the proxy).
+    # Token-at-rest encryption is REQUIRED before any multi-user or untrusted
+    # network exposure — never commit tokens to the repo.
     volumes:
       - ./workspace/src:/ros_ws/src
       - editor-data:/home/coder/.local/share/code-server
+      - editor-config:/home/coder/.config/code-server
     networks:
       - web_net
     restart: unless-stopped
@@ -173,10 +193,15 @@ services:
       UBEROS_SERVICES: ${UBEROS_SERVICES:-ros,simulator,vnc,editor,frontend}
       # Surfaced to the SPA so it knows whether to show Logout (BR-008).
       UBEROS_AUTH: ${UBEROS_AUTH:-off}
+      # Path to the persisted system settings store (Theme C, FR-C2). Lives on
+      # the control-data named volume so settings survive container restarts.
+      UBEROS_CONFIG_FILE: /data/config.json
     volumes:
       # Read/write access to the Docker socket to restart individual services.
       # The API surface is restricted to the allowlist above (see server.js).
       - /var/run/docker.sock:/var/run/docker.sock
+      # Durable store for system settings (config.json). Persists across restarts.
+      - control-data:/data
     networks:
       - web_net
     # Never host-published; reachable only through the proxy (INV-04, WP-13).

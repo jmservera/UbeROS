@@ -1,6 +1,7 @@
 # ADR-001: ROS 2 Distribution
 
-- Status: Accepted (SPIKE-A passed)
+- Status: Accepted — Implemented (SPIKE-A passed)
+- Implementation: `ROS_DISTRO=lyrical` / `GZ_RELEASE=jetty` defaults in `compose.yaml`; base images verified in SPIKE-A
 - Date: 2026-07-17
 - Deciders: jmservera (product), Neo (technical)
 - Related: PRD U-D1, research RISK-1

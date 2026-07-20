@@ -1,6 +1,7 @@
 # ADR-005: Authentication
 
-- Status: Accepted
+- Status: Accepted — Implemented (basic auth; OAuth2-Proxy path not yet built)
+- Implementation: proxy `UBEROS_AUTH` toggle + mounted `.htpasswd` (`config/nginx`); OAuth2-Proxy remains the documented upgrade path
 - Date: 2026-07-17
 - Deciders: jmservera (product), Trinity, Morpheus
 - Related: PRD N-05, research R5

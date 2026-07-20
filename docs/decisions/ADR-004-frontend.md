@@ -1,6 +1,7 @@
 # ADR-004: Frontend Framework and Window Manager
 
-- Status: Accepted (low confidence on framework; window manager firm)
+- Status: Accepted — Implemented (low confidence on framework; window manager firm)
+- Implementation: `services/frontend` Svelte + `golden-layout` 2.6.0
 - Date: 2026-07-17
 - Deciders: jmservera (product), Switch (technical)
 - Related: PRD U-D4, research R8

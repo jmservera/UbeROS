@@ -10,6 +10,20 @@
   --uberos-err: #f38ba8;
 }
 
+/* Light theme (Theme C config setting). Applied via data-theme="light" on the
+   document element; overrides the palette variables the whole app keys off. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --uberos-bg: #eff1f5;
+  --uberos-panel: #e6e9ef;
+  --uberos-accent: #1e66f5;
+  --uberos-text: #4c4f69;
+  --uberos-muted: #8c8fa1;
+  --uberos-ok: #40a02b;
+  --uberos-warn: #df8e1d;
+  --uberos-err: #d20f39;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -41,12 +55,11 @@ body,
   pointer-events: none;
 }
 
-/* Injected header buttons — a "+" (new terminal, BR-003) and a "⇗" (open the
-   active panel in a new window, BR-002). Golden Layout has no custom-header-
-   button API, so App.svelte injects these into each stack's .lm_controls strip
-   (a flexbox). order:-1 keeps them left of Golden Layout's own maximise/close
-   controls. Styling lives here because the buttons are created outside Svelte's
-   component scope. */
+/* Injected header button — a "+" (new terminal, BR-003). Golden Layout has no
+   custom-header-button API, so App.svelte injects it into each stack's
+   .lm_controls strip (a flexbox). order:-1 keeps it left of Golden Layout's own
+   pop-out/maximise/close controls. Styling lives here because the button is
+   created outside Svelte's component scope. */
 .lm_header .lm_controls .uberos-hdr-btn {
   order: -1;
   height: 18px;
@@ -66,17 +79,12 @@ body,
   opacity: 1;
 }
 
-/* Golden Layout's native pop-out control opens a broken ?gl-window= window; we
-   replace it with our own "⇗" button, so hide the native one. */
-.lm_header .lm_popout {
-  display: none;
-}
-
-/* A popped-out panel renders this same app in a subwindow; hide the menu bar
-   there so the detached panel fills the window (BR-002). */
-body.uberos-subwindow .uberos-titlebar {
-  display: none;
-}
+/* Pop-out (sub-window) chrome: the titlebar/menubar is omitted from the DOM in
+   sub-window mode (see the {#if !isSubWindow} guard in App.svelte), so no CSS
+   hide rule is needed here. The `uberos-subwindow` body class remains set in
+   onMount as a hook for any future sub-window-only styling. The pop-in control
+   (GL's native `.lm_popin`, added via checkAddDefaultPopinButton in onMount) is
+   styled by the imported goldenlayout base/dark-theme CSS. */
 
 .panel-body {
   padding: 0.75rem;

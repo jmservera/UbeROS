@@ -1,6 +1,7 @@
 # ADR-002: Reverse Proxy
 
-- Status: Accepted
+- Status: Accepted — Implemented
+- Implementation: `services/proxy/nginx.conf` single ingress; only the proxy port is host-published
 - Date: 2026-07-17
 - Deciders: jmservera (product), Trinity (technical)
 - Related: PRD U-D2, research R1

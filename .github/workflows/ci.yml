@@ -1,0 +1,124 @@
+name: CI — Lint & Build
+# UbeROS project CI — fast PR-wide gate: Dockerfile/shell/JS/CSS linting plus an
+# image build check (compose config validate + docker compose build). Runs for
+# ANY pull request (all target branches) so every PR verifies lint passes and
+# images still build. Live integration/acceptance tests live in
+# ci-integration.yml, which only runs on protected/preview branches.
+# Separated from squad-ci.yml (managed by squad-cli) so squad upgrades don't
+# overwrite project-specific checks.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [dev, main, insider]
+
+permissions:
+  contents: read
+jobs:
+  # ── Job 1: Fast feedback — no Docker build required ────────────────────
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint Dockerfiles
+        # Use the official hadolint action pinned to a commit SHA (v3.3.0) for
+        # reproducible, supply-chain-anchored linting instead of downloading the
+        # binary at runtime. `recursive` lints every services/*/Dockerfile.
+        # DL3008 (apt pin versions) and DL3013 (pip pin) are ignored because
+        # distro/package installs are intentionally unpinned in these CI images.
+        uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
+        with:
+          recursive: true
+          ignore: DL3008,DL3013
+
+      - name: Lint shell scripts (shellcheck)
+        run: |
+          command -v shellcheck >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y shellcheck)
+          shellcheck --severity=warning \
+            services/ros/uberos-term.sh \
+            services/ros/entrypoint.sh \
+            services/vnc/entrypoint.sh \
+            services/simulator/entrypoint.sh \
+            tests/smoke.sh
+
+      - name: Set up Node.js for linting
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Lint JavaScript (ESLint)
+        run: |
+          npm init -y > /dev/null 2>&1
+          npm install --no-save --ignore-scripts eslint@8 > /dev/null 2>&1
+          npx --no-install eslint --no-eslintrc \
+            --env browser,node,es2022 \
+            --parser-options='{"ecmaVersion":2022,"sourceType":"module"}' \
+            --rule '{"no-undef":"off","no-unused-vars":"warn"}' \
+            'services/frontend/src/**/*.js' \
+            'services/frontend/*.config.js' \
+            'services/control/server.js' \
+            'tests/**/*.js'
+
+      - name: Lint CSS (stylelint)
+        run: |
+          npm install --no-save --ignore-scripts stylelint@16 stylelint-config-standard@36 > /dev/null 2>&1
+          # stylelint@16's --config expects a file path (not inline JSON), and it
+          # resolves `extends` relative to the config file, so write it next to
+          # node_modules. selector-class-pattern keeps kebab-case for project
+          # classes but exempts third-party Golden Layout classes (.lm_*); the
+          # empty-line/font-quote rules are stylistic and not enforced here.
+          cat > stylelint.ci.json <<'EOF'
+          {
+            "extends": "stylelint-config-standard",
+            "rules": {
+              "selector-class-pattern": ["^([a-z][a-z0-9]*)(-[a-z0-9]+)*$|^lm_", { "message": "Expected class selector to be kebab-case (Golden Layout lm_* classes exempt)" }],
+              "custom-property-empty-line-before": null,
+              "font-family-name-quotes": null
+            }
+          }
+          EOF
+          npx --no-install stylelint --config stylelint.ci.json \
+            'services/frontend/src/**/*.css'
+
+      - name: Check ADR consistency
+        # Keep the ADR set and its index in sync (docs/decisions/README.md is the
+        # source of truth for status). Fails the build if any ADR is missing its
+        # `- Status:` lifecycle line or is not listed in the README index.
+        run: |
+          set -euo pipefail
+          readme="docs/decisions/README.md"
+          fail=0
+          if [ ! -f "$readme" ]; then
+            echo "::error::Missing ADR index $readme"
+            exit 1
+          fi
+          for adr in docs/decisions/ADR-*.md; do
+            base=$(basename "$adr")
+            if ! grep -qE '^- Status:' "$adr"; then
+              echo "::error file=$adr::ADR is missing a '- Status:' lifecycle line"
+              fail=1
+            fi
+            if ! grep -qF "$base" "$readme"; then
+              echo "::error file=$readme::ADR index has no row referencing $base"
+              fail=1
+            fi
+          done
+          exit $fail
+
+
+  # ── Job 2: Build gate — validate compose config + build all images ─────
+  # This is the lightweight "build" half of "lint + build for any PR". It does
+  # NOT start the stack or run live tests — that is ci-integration.yml's job.
+  build-and-test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate compose config
+        run: docker compose config --quiet
+
+      - name: Build images
+        run: docker compose build
