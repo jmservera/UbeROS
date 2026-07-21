@@ -15,6 +15,7 @@ ENV ROS_DISTRO=${ROS_DISTRO}
 
 # Register the official ROS package repository (packages.ros.org) so the
 # ros-gz bridge packages resolve. Uses the signed-by keyring convention.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
