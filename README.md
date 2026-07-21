@@ -114,6 +114,8 @@ stored credentials and forces re-authentication.
 - PRD: [docs/prds/uberos-init.md](docs/prds/uberos-init.md)
 - Decisions: [docs/decisions/](docs/decisions/)
 
-> **Note:** The primary ROS distribution (Kilted) is pending SPIKE-A image and
+> **Note:** The primary ROS distribution (Kilted) passed SPIKE-A image and
 > package verification. See [ADR-001](docs/decisions/ADR-001-ros-distro.md).
-> If verification fails, set `ROS_DISTRO=jazzy` and `GZ_RELEASE=harmonic`.
+> Current implementation defaults are `ROS_DISTRO=kilted` and
+> `GZ_RELEASE=ionic`. If a compatibility rollback is needed, set
+> `ROS_DISTRO=jazzy` and `GZ_RELEASE=harmonic`.

@@ -163,6 +163,9 @@ simulator from participating in ROS workflows.
 
 ### Future State
 
+The simulator launch menu and per-simulator lifecycle described below are target
+state requirements and are not yet implemented in the current stack.
+
 - A simulator registry describes the available simulators; a launch menu lists them (Gazebo,
   Turtlesim, and future additions) and starts/stops them on demand, showing status.
 - Build configuration selects which simulators are installed, defaulting to Gazebo + Turtlesim.

@@ -14,7 +14,13 @@ Gazebo Harmonic, proven ecosystem to ~May 2029), and Humble (nearing EOL).
 Lyrical offers the longest runway but its ecosystem package coverage
 (`rosbridge-suite`, `ros-gz`) was unverified at research time.
 
-During development we found out that the Jetty image is using Ubuntu Noble, which is not supported by ROS 2 Lyrical, so we had to fall back to Jazzy Jalisco. The Gazebo Ionic image is supported by Jazzy and Lyrical, so it is the preferred Gazebo baseline.
+During development we confirmed that the Jetty image uses Ubuntu Noble, which blocks the ROS 2 Lyrical package path on that image. Gazebo Ionic remains compatible with both Jazzy and Kilted, so it was retained while the repository baseline stayed on Kilted.
+
+This Jetty-on-Noble limitation is historical context for compatibility decisions.
+The current implemented baseline in this repository is `ROS_DISTRO=kilted` with
+`GZ_RELEASE=ionic` as defined in `compose.yaml`. When documenting compatibility
+constraints, treat Jazzy/Ionic as the explicit fallback pair while the
+Lyrical package path remains blocked on Noble-based Jetty images.
 
 ## Decision
 
