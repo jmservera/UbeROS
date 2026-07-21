@@ -17,7 +17,7 @@
           <discovery_config>
             <discoveryProtocol>CLIENT</discoveryProtocol>
             <discoveryServersList>
-              <!-- Fast DDS 3.x (ROS Lyrical): discoveryServersList children are
+              <!-- Fast DDS 3.x (ROS Kilted): discoveryServersList children are
                    <locator> elements directly. The pre-3.x
                    <RemoteServer prefix="GUID"> form was removed and makes the
                    parser treat the list as empty ("without content"). -->

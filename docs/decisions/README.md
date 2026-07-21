@@ -33,7 +33,7 @@ a PR lands (or removes) the code that realizes an ADR, update that ADR's
 
 | ADR | Title | Status | Implementation summary |
 |-----|-------|--------|------------------------|
-| [001](ADR-001-ros-distro.md) | ROS 2 Distribution | Implemented | `ROS_DISTRO=lyrical` / `GZ_RELEASE=jetty` in `compose.yaml` |
+| [001](ADR-001-ros-distro.md) | ROS 2 Distribution | Implemented | `ROS_DISTRO=kilted` / `GZ_RELEASE=ionic` in `compose.yaml` |
 | [002](ADR-002-proxy.md) | Reverse Proxy | Implemented | `services/proxy/nginx.conf` single ingress |
 | [003](ADR-003-terminal.md) | Terminal Transport | Implemented | `services/ros` ttyd 1.7.7 + tmux |
 | [004](ADR-004-frontend.md) | Frontend & Window Manager | Implemented | `services/frontend` Svelte + golden-layout 2.6.0 |

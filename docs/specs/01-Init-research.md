@@ -4,7 +4,7 @@
 - **Research snapshot:** commit `3d2d4629352fdea8acba94c4fe40a2a7808bd21f`
 - **Canonical spec:** [`docs/specs/01-Init.md`][spec-url] (blob `b34760996abe7a4e61a4ef9d9db15e6eecb4e6ac`)
 - **Research date:** 2026-07-17
-- **Canonical ROS Lyrical page:** <https://docs.ros.org/en/lyrical/Releases/Release-Lyrical-Luth.html>
+- **Canonical ROS Kilted page:** <https://docs.ros.org/en/kilted/Releases/Release-Kilted-Kaiju.html>
 
 > **Note:** This report is implementation guidance for the canonical spec. The canonical spec remains the source of truth for scope and success criteria.
 
@@ -27,7 +27,7 @@
 
 ### Key destinations
 
-[Dependency graph](#implementation-dependency-graph) · [SPIKE-A](#spike-a--lyrical-and-jetty-image-verification) · [Implementation Roadmap](#implementation-roadmap) · [Validation Strategy](#validation-strategy) · [Risks and Fallbacks](#risks-and-fallbacks) · [Decisions Needed](#decisions-needed) · [Suggested Next Actions](#suggested-next-actions)
+[Dependency graph](#implementation-dependency-graph) · [SPIKE-A](#spike-a--kilted-and-ionic-image-verification) · [Implementation Roadmap](#implementation-roadmap) · [Validation Strategy](#validation-strategy) · [Risks and Fallbacks](#risks-and-fallbacks) · [Decisions Needed](#decisions-needed) · [Suggested Next Actions](#suggested-next-actions)
 
 ## Executive Summary
 
@@ -35,22 +35,22 @@ UbeROS was a Day-0 project at the researched commit: the canonical spec was the 
 
 Research produced recommended resolutions for all ten research questions in spec §8, but four product choices still require confirmation before implementation: the ROS distribution, reverse proxy, terminal transport, and frontend framework.[^spec-r]
 
-> **Recommendation:** Use ROS 2 Lyrical Luth with Ubuntu 26.04 “Resolute” and Gazebo Jetty only if the mandatory SPIKE-A verification passes. Use Jazzy Jalisco with Gazebo Harmonic as the verified fallback.[^lyrical-base][^jetty-img]
+> **Recommendation:** Use ROS 2 Kilted Kaiju with Ubuntu 26.04 “Resolute” and Gazebo Ionic only if the mandatory SPIKE-A verification passes. Use Jazzy Jalisco with Gazebo Harmonic as the verified fallback.[^kilted-base][^ionic-img]
 
-> **Risk:** Lyrical was approximately eight weeks old at the research date. Availability of `ros-lyrical-rosbridge-suite` and `ros-lyrical-ros-gz` remained unverified and can block the first ROS and simulator images.[^spike-a-note]
+> **Risk:** Kilted was approximately eight weeks old at the research date. Availability of `ros-kilted-rosbridge-suite` and `ros-kilted-ros-gz` remained unverified and can block the first ROS and simulator images.[^spike-a-note]
 
 The implementation roadmap defines dependency-ordered work packages from repository scaffolding through S1–S6 acceptance. The ROS and simulation branches converge at Compose integration, followed by persistence, security, acceptance testing, and platform validation. The original critical-path estimate is approximately 12–18 ideal person-days.
 
 ## Decisions Needed
 
-The following four choices block planning or implementation. The research-backed defaults are Lyrical subject to SPIKE-A, Nginx, ttyd, and Svelte with Golden Layout v2.
+The following four choices block planning or implementation. The research-backed defaults are Kilted subject to SPIKE-A, Nginx, ttyd, and Svelte with Golden Layout v2.
 
 ### Quick-Answer Template
 
 Copy, complete, and return this template:
 
 ```text
-U-D1 ROS Distribution:     [ ] Lyrical  [ ] Jazzy  [ ] Humble  [ ] Parameterized (Jazzy now → Lyrical later)
+U-D1 ROS Distribution:     [ ] Kilted  [ ] Jazzy  [ ] Humble  [ ] Parameterized (Jazzy now → Kilted later)
 U-D2 Reverse Proxy:        [ ] Nginx  [ ] Traefik  [ ] Caddy
 U-D3 Terminal Transport:   [ ] ttyd  [ ] xterm.js+custom  [ ] Guacamole
 U-D4 Frontend Framework:   [ ] Svelte+GL2  [ ] React+GL2  [ ] Vue+vgl  [ ] VanillaJS+GL2
@@ -65,19 +65,19 @@ C-09 Simulation world override (leave blank = built-in shapes): __________
 
 - **Blocking horizon:** Before WP-0 repository scaffolding and the first ROS Dockerfile.
 - **Question:** Which ROS 2 distribution should UbeROS use as its primary baseline?
-- **Context:** The user-supplied Lyrical Luth page signals possible intent to target Lyrical. Research found an active Lyrical base image and a support horizon of approximately May 2031, but its ecosystem package coverage remained unverified at the research date.[^lyrical-base][^ros-eol]
+- **Context:** The user-supplied Kilted Kaiju page signals possible intent to target Kilted. Research found an active Kilted base image and a support horizon of approximately May 2031, but its ecosystem package coverage remained unverified at the research date.[^kilted-base][^ros-eol]
 - **Owner:** @juanserv_microsoft for the product decision; Neo for technical verification.
 
 **Options**
 
-1. **Lyrical Luth** — Ubuntu 26.04, Gazebo Jetty, and the longest expected runway. It carries the highest ecosystem-readiness risk and requires SPIKE-A before any Dockerfile is committed.
+1. **Kilted Kaiju** — Ubuntu 26.04, Gazebo Ionic, and the longest expected runway. It carries the highest ecosystem-readiness risk and requires SPIKE-A before any Dockerfile is committed.
 2. **Jazzy Jalisco** — Ubuntu 24.04, Gazebo Harmonic, and a proven package and image ecosystem through approximately May 2029.
 3. **Humble Hawksbill** — Ubuntu 22.04, Gazebo Fortress, and a large community, but only approximately ten months of support remained at the research date.
-4. **Parameterized: Jazzy now, Lyrical later** — Start with Jazzy and change `ROS_DISTRO` after Lyrical package availability is verified. The later switch is a one-line `.env` change.
+4. **Parameterized: Jazzy now, Kilted later** — Start with Jazzy and change `ROS_DISTRO` after Kilted package availability is verified. The later switch is a one-line `.env` change.
 
-> **Recommendation:** Select **Lyrical Luth** if the intent is to prioritize support runway and SPIKE-A passes. Select the parameterized Jazzy-first option for the lowest delivery risk.
+> **Recommendation:** Select **Kilted Kaiju** if the intent is to prioritize support runway and SPIKE-A passes. Select the parameterized Jazzy-first option for the lowest delivery risk.
 
-**Answer:** `[ ] Lyrical  [ ] Jazzy  [ ] Humble  [ ] Parameterized (Jazzy now → Lyrical later)  Other: ____________________`
+**Answer:** `[ ] Kilted  [ ] Jazzy  [ ] Humble  [ ] Parameterized (Jazzy now → Kilted later)  Other: ____________________`
 
 ### U-D2 — Reverse Proxy Product
 
@@ -225,11 +225,11 @@ These decisions are already established by the canonical spec and should not be 
    - **Resolution:** Nginx, because static configuration, `auth_basic`, WebSocket support, and minimal infrastructure fit Init.
    - **Confidence:** Medium; Nginx has stronger evidence, but Traefik was not independently benchmarked.[^q-r1]
 2. **R2 — ROS distribution**
-   - **Resolution:** Lyrical Luth, subject to SPIKE-A; Jazzy Jalisco is the low-risk fallback.
-   - **Confidence:** High for Jazzy and medium for Lyrical because Lyrical was recently released.[^lyrical-base][^ros-eol]
+   - **Resolution:** Kilted Kaiju, subject to SPIKE-A; Jazzy Jalisco is the low-risk fallback.
+   - **Confidence:** High for Jazzy and medium for Kilted because Kilted was recently released.[^kilted-base][^ros-eol]
 3. **R3 — Gazebo generation and registry**
-   - **Resolution:** Gazebo Jetty (`gz-sim10`) from `ghcr.io/openrobotics/gazebo:jetty-full`; Gazebo Classic 11 is excluded.
-   - **Confidence:** High for EOL and image availability.[^jetty-img][^gz-eol]
+   - **Resolution:** Gazebo Ionic (`gz-sim10`) from `ghcr.io/openrobotics/gazebo:ionic-full`; Gazebo Classic 11 is excluded.
+   - **Confidence:** High for EOL and image availability.[^ionic-img][^gz-eol]
 4. **R4 — GUI streaming topology**
    - **Resolution:** Shared Xvfb display `:99`, x11vnc, and a noVNC sidecar using `network_mode: service:simulator`, with software rendering.
    - **Confidence:** High; four research records converged on this topology.[^q-r4]
@@ -252,25 +252,25 @@ These decisions are already established by the canonical spec and should not be 
     - **Resolution:** Already settled by spec §9. Closing a browser view does not stop a workload; layout restores from `localStorage`.
     - **Confidence:** High because the spec is explicit.[^spec-lifecycle]
 
-### ROS 2 Lyrical Luth Evidence
+### ROS 2 Kilted Kaiju Evidence
 
-> **Note:** Evidence correction MC-1: Lyrical uses Ubuntu 26.04 “Resolute,” not Ubuntu 24.04 “Noble,” which is Jazzy’s base. The evidence is the `ros:lyrical-ros-base-resolute` Docker tag.[^lyrical-base]
+> **Note:** Evidence correction MC-1: Kilted uses Ubuntu 26.04 “Resolute,” not Ubuntu 24.04 “Noble,” which is Jazzy’s base. The evidence is the `ros:kilted-ros-base-resolute` Docker tag.[^kilted-base]
 
-> **Note:** Evidence correction MC-2: The Ubuntu base is supported by Docker Hub tag data and the ROS lifecycle record, not by the Lyrical release page, which focuses on language and runtime features.[^ros-eol]
+> **Note:** Evidence correction MC-2: The Ubuntu base is supported by Docker Hub tag data and the ROS lifecycle record, not by the Kilted release page, which focuses on language and runtime features.[^ros-eol]
 
 | Fact | Finding | Evidence |
 |---|---|---|
-| Release date | 2026-05-22 | ROS lifecycle record and Lyrical release page[^ros-eol][^lyrical-page] |
+| Release date | 2026-05-22 | ROS lifecycle record and Kilted release page[^ros-eol][^kilted-page] |
 | Expected EOL | Approximately May 2031 | ROS lifecycle record[^ros-eol] |
-| Ubuntu base | 26.04 “Resolute,” inferred from the `-resolute` image tag and release cadence | Docker Hub tag API[^lyrical-base] |
-| LTS status | Supported inference; not yet represented in REP-2000 | ROS lifecycle record, Jetty LTS designation, and REP-2000 gap[^ros-eol][^jetty-img][^rep2000] |
-| Docker image | `ros:lyrical-ros-base`, active for amd64 and arm64 at the research date | Docker Hub v2 API[^lyrical-base] |
-| Gazebo pairing | Gazebo Jetty (`gz-sim10`) through vendor packages | ROS/Gazebo installation guidance[^ros-gz-pair] |
-| New features | EventsCBGExecutor, AsyncNode, `rosidl::Buffer`, YAML type annotations, and fish shell support | Lyrical release page[^lyrical-page] |
-| Fish setup | `source /opt/ros/lyrical/setup.fish` | Lyrical release page[^lyrical-page] |
-| REP-2000 status | No Lyrical section at the research date | Live REP-2000 review[^rep2000] |
+| Ubuntu base | 26.04 “Resolute,” inferred from the `-resolute` image tag and release cadence | Docker Hub tag API[^kilted-base] |
+| LTS status | Supported inference; not yet represented in REP-2000 | ROS lifecycle record, Ionic LTS designation, and REP-2000 gap[^ros-eol][^ionic-img][^rep2000] |
+| Docker image | `ros:kilted-ros-base`, active for amd64 and arm64 at the research date | Docker Hub v2 API[^kilted-base] |
+| Gazebo pairing | Gazebo Ionic (`gz-sim10`) through vendor packages | ROS/Gazebo installation guidance[^ros-gz-pair] |
+| New features | EventsCBGExecutor, AsyncNode, `rosidl::Buffer`, YAML type annotations, and fish shell support | Kilted release page[^kilted-page] |
+| Fish setup | `source /opt/ros/kilted/setup.fish` | Kilted release page[^kilted-page] |
+| REP-2000 status | No Kilted section at the research date | Live REP-2000 review[^rep2000] |
 
-> **Risk:** SPIKE-A must pass before Lyrical appears in any committed Dockerfile. It verifies the base image, rosbridge package, Jetty image, `ros-gz` package, and software rendering.
+> **Risk:** SPIKE-A must pass before Kilted appears in any committed Dockerfile. It verifies the base image, rosbridge package, Ionic image, `ros-gz` package, and software rendering.
 
 ## Architecture Overview
 
@@ -283,9 +283,9 @@ flowchart TD
     subgraph DockerCompose["Docker Compose — uberos stack"]
         Proxy["proxy<br/>(Nginx :8080)<br/>path routing<br/>WebSocket proxying<br/>auth_basic"]
         Frontend["frontend<br/>(Svelte + Golden Layout v2)<br/>:3000"]
-        ROS["ros<br/>(ros:lyrical-ros-base)<br/>ROS 2 middleware<br/>rosbridge :9090<br/>ttyd :7681<br/>colcon"]
+        ROS["ros<br/>(ros:kilted-ros-base)<br/>ROS 2 middleware<br/>rosbridge :9090<br/>ttyd :7681<br/>colcon"]
         DS["discovery-server<br/>(Fast DDS :11811)"]
-        Simulator["simulator<br/>(Gazebo Jetty full)<br/>Xvfb :99<br/>Gazebo Sim"]
+        Simulator["simulator<br/>(Gazebo Ionic full)<br/>Xvfb :99<br/>Gazebo Sim"]
         VNC["vnc sidecar<br/>(network_mode: service:simulator)<br/>x11vnc :5900<br/>noVNC/websockify :6080"]
         Editor["editor<br/>(code-server)<br/>:8443"]
     end
@@ -325,7 +325,7 @@ flowchart TD
 
 ```mermaid
 graph TD
-    SPIKE["SPIKE-A<br/>Lyrical + Jetty<br/>verification"]
+    SPIKE["SPIKE-A<br/>Kilted + Ionic<br/>verification"]
     WP0["WP-0<br/>Repository Scaffolding"]
     WP5["WP-5<br/>Fast DDS Discovery"]
     WP2["WP-2<br/>ROS Container"]
@@ -540,8 +540,8 @@ The canonical `docs/specs/01-Init.md` remains unchanged.
 **Committed `.env` defaults contain no secrets:**
 
 ```dotenv
-ROS_DISTRO=lyrical
-GZ_RELEASE=jetty
+ROS_DISTRO=kilted
+GZ_RELEASE=ionic
 UBEROS_PORT=8080
 ROS_DOMAIN_ID=42
 RMW_IMPLEMENTATION=rmw_fastrtps_cpp
@@ -670,7 +670,7 @@ Domain ID `42` is inside the cross-platform-safe range of 0–101.[^dds-domain]
 
 ### Gazebo, World Assets, and GUI Streaming
 
-**Container image:** `ghcr.io/openrobotics/gazebo:${GZ_RELEASE}-full`, with amd64 and arm64 support recorded for Jetty.[^jetty-img]
+**Container image:** `ghcr.io/openrobotics/gazebo:${GZ_RELEASE}-full`, with amd64 and arm64 support recorded for Ionic.[^ionic-img]
 
 **Software-rendering environment**[^ogre2-mesa]
 
@@ -723,7 +723,7 @@ vnc:
 
 **Pattern A — Recommended for Init: rosbridge_suite with roslibjs**[^rosbridge]
 
-- **Server package:** `ros-jazzy-rosbridge-suite` or `ros-lyrical-rosbridge-suite`; Lyrical availability is a SPIKE-A gate.
+- **Server package:** `ros-jazzy-rosbridge-suite` or `ros-kilted-rosbridge-suite`; Kilted availability is a SPIKE-A gate.
 - **Internal port:** `9090`, never published to the host.
 - **Client:** `roslib` v2.1.0, ESM and TypeScript compatible, requiring Node.js 20 or later.
 - **Install command:** `npm install roslib`.
@@ -859,42 +859,42 @@ Work packages are ordered by dependency and critical-path sequence, not by numer
 
 Owners follow the team roles defined by spec §12.[^spec-url]
 
-### SPIKE-A — Lyrical and Jetty Image Verification
+### SPIKE-A — Kilted and Ionic Image Verification
 
 - **Owner:** Neo.
 - **Size:** S.
 - **Prerequisites:** None.
 - **Blocks:** WP-2 and WP-3.
-- **Goal:** Confirm Lyrical and Jetty ecosystem readiness before authoring Dockerfiles.
+- **Goal:** Confirm Kilted and Ionic ecosystem readiness before authoring Dockerfiles.
 
 **Probe commands**
 
 ```bash
-# P1: Lyrical base image
-docker run --rm ros:lyrical-ros-base \
-  bash -c "source /opt/ros/lyrical/setup.bash && ros2 --version"
-# Expected: ros2 reports the Lyrical version.
+# P1: Kilted base image
+docker run --rm ros:kilted-ros-base \
+  bash -c "source /opt/ros/kilted/setup.bash && ros2 --version"
+# Expected: ros2 reports the Kilted version.
 
-# P2: rosbridge availability for Lyrical
-docker run --rm ros:lyrical-ros-base \
-  bash -c "apt-get update -q && apt-cache show ros-lyrical-rosbridge-suite" \
+# P2: rosbridge availability for Kilted
+docker run --rm ros:kilted-ros-base \
+  bash -c "apt-get update -q && apt-cache show ros-kilted-rosbridge-suite" \
   2>&1 | grep -E "Package|Version|Unable"
 
-# P3: Gazebo Jetty full image
-docker run --rm ghcr.io/openrobotics/gazebo:jetty-full \
+# P3: Gazebo Ionic full image
+docker run --rm ghcr.io/openrobotics/gazebo:ionic-full \
   gz sim --version
 # Expected: Gazebo Sim 10.x.x.
 
-# P4: ros-gz vendor package for Lyrical and Jetty
-docker run --rm ros:lyrical-ros-base \
-  bash -c "apt-get update -q && apt-cache show ros-lyrical-ros-gz" \
+# P4: ros-gz vendor package for Kilted and Ionic
+docker run --rm ros:kilted-ros-base \
+  bash -c "apt-get update -q && apt-cache show ros-kilted-ros-gz" \
   2>&1 | grep -E "Package|Version"
 
-# P5: Software rendering in Jetty
+# P5: Software rendering in Ionic
 docker run --rm \
   -e LIBGL_ALWAYS_SOFTWARE=1 \
   -e MESA_GL_VERSION_OVERRIDE=3.3 \
-  ghcr.io/openrobotics/gazebo:jetty-full \
+  ghcr.io/openrobotics/gazebo:ionic-full \
   bash -c "apt-get install -y -q mesa-utils && glxinfo -B" \
   2>&1 | grep -i renderer
 # Expected: renderer contains "llvmpipe".
@@ -904,7 +904,7 @@ docker run --rm \
 
 | Probe result | Action |
 |---|---|
-| All probes pass | Use `ROS_DISTRO=lyrical` and `GZ_RELEASE=jetty` |
+| All probes pass | Use `ROS_DISTRO=kilted` and `GZ_RELEASE=ionic` |
 | P2 fails | Install rosbridge from source in WP-2 and record the exception in ADR-001 |
 | P3 fails | Fall back to `ghcr.io/openrobotics/gazebo:harmonic-full` with Jazzy |
 | P5 fails | Add `GALLIUM_DRIVER=llvmpipe`; if it still fails, use Jazzy and Noble |
@@ -950,7 +950,7 @@ docker run --rm \
 
 ```yaml
 discovery-server:
-  image: ros:${ROS_DISTRO:-lyrical}-ros-base
+  image: ros:${ROS_DISTRO:-kilted}-ros-base
   command: fastdds discovery -i 0 -l 0.0.0.0 -p 11811
   networks:
     - ros_net
@@ -981,7 +981,7 @@ discovery-server:
 **Dockerfile outline**
 
 ```dockerfile
-ARG ROS_DISTRO=lyrical
+ARG ROS_DISTRO=kilted
 FROM ros:${ROS_DISTRO}-ros-base
 
 RUN apt-get update \
@@ -1020,9 +1020,9 @@ EXPOSE 9090 7681
 ENTRYPOINT ["/entrypoint.sh"]
 ```
 
-> **Risk:** `ros-${ROS_DISTRO}-rosbridge-suite` must be confirmed for Lyrical by SPIKE-A P2.
+> **Risk:** `ros-${ROS_DISTRO}-rosbridge-suite` must be confirmed for Kilted by SPIKE-A P2.
 
-> **Risk:** `osrf/ros:lyrical-simulation` may not exist. Use `ros:lyrical-ros-base` and install required Gazebo integration packages explicitly.
+> **Risk:** `osrf/ros:kilted-simulation` may not exist. Use `ros:kilted-ros-base` and install required Gazebo integration packages explicitly.
 
 **Definition of done**
 
@@ -1041,7 +1041,7 @@ ENTRYPOINT ["/entrypoint.sh"]
 **Dockerfile outline**
 
 ```dockerfile
-ARG GZ_RELEASE=jetty
+ARG GZ_RELEASE=ionic
 FROM ghcr.io/openrobotics/gazebo:${GZ_RELEASE}-full
 
 RUN apt-get update \
@@ -1472,7 +1472,7 @@ The implementation must validate each tier rather than treating expected support
 
 Create:
 
-- `ADR-001-ros-distro.md` — Lyrical vs. Jazzy, including SPIKE-A results.
+- `ADR-001-ros-distro.md` — Kilted vs. Jazzy, including SPIKE-A results.
 - `ADR-002-proxy.md` — Nginx selection rationale.
 - `ADR-003-terminal.md` — ttyd inside the ROS container.
 - `ADR-004-frontend.md` — Svelte and Golden Layout v2, or the confirmed alternative.
@@ -1521,7 +1521,7 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 
 ## Risks and Fallbacks
 
-> **Risk:** **RISK-1 — Lyrical ecosystem gaps**
+> **Risk:** **RISK-1 — Kilted ecosystem gaps**
 >
 > - **Probability:** Medium; the distribution was approximately eight weeks old.
 > - **Impact:** High; missing rosbridge or `ros-gz` packages block WP-2.
@@ -1533,7 +1533,7 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 > - **Impact:** High; S4 cannot pass.
 > - **Mitigation:** Set `MESA_GL_VERSION_OVERRIDE=3.3`, wait for Xvfb before Gazebo startup, and retain the Jazzy fallback.[^ogre2-mesa]
 
-> **Risk:** **RISK-3 — Jetty full image unavailable or broken**
+> **Risk:** **RISK-3 — Ionic full image unavailable or broken**
 >
 > - **Probability:** Low; the image existed and was updated regularly at the research date.
 > - **Impact:** High; WP-3 is blocked.
@@ -1585,7 +1585,7 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 
 | Spike | Goal | Duration | Owner | Gates |
 |---|---|---|---|---|
-| SPIKE-A, mandatory | Verify Lyrical and Jetty images, packages, and software rendering | 0.5 day | Neo | WP-2 and WP-3 |
+| SPIKE-A, mandatory | Verify Kilted and Ionic images, packages, and software rendering | 0.5 day | Neo | WP-2 and WP-3 |
 | SPIKE-B, optional | Compare Svelte and React with Golden Layout v2 | 1 day | Switch | WP-9 |
 | SPIKE-C, optional | Validate Docker Desktop Synchronized File Shares for macOS | 0.5 day | Trinity | WP-14 |
 
@@ -1605,11 +1605,11 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 
 ### Verified Facts
 
-- The `ros:lyrical-ros-base` tag was active and last pushed on 2026-07-16.[^lyrical-base]
-- The Lyrical release page documents EventsCBGExecutor, AsyncNode, `rosidl::Buffer`, YAML type annotations, and fish shell support.[^lyrical-page]
-- `ghcr.io/openrobotics/gazebo:jetty-full` existed for amd64 and arm64 and was designated LTS.[^jetty-img]
+- The `ros:kilted-ros-base` tag was active and last pushed on 2026-07-16.[^kilted-base]
+- The Kilted release page documents EventsCBGExecutor, AsyncNode, `rosidl::Buffer`, YAML type annotations, and fish shell support.[^kilted-page]
+- `ghcr.io/openrobotics/gazebo:ionic-full` existed for amd64 and arm64 and was designated LTS.[^ionic-img]
 - Gazebo Classic 11 reached EOL on 2025-01-25; the legacy Docker Hub Gazebo image had no supported tags.[^gz-eol][^spec-neo-hist]
-- Gazebo Jetty is `gz-sim10` with an expected EOL of 2031-05.[^gz-eol]
+- Gazebo Ionic is `gz-sim10` with an expected EOL of 2031-05.[^gz-eol]
 - Iron, Jazzy, Humble, and Kilted lifecycle dates were verified against the ROS lifecycle record.[^ros-eol]
 - Docker bridge networks do not provide the multicast behavior required by default DDS discovery.[^dds-multicast]
 - rosbridge’s `check_origin` returns `True` unconditionally.[^bridge-auth]
@@ -1624,24 +1624,24 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 
 ### High-Confidence Inferences
 
-- Ubuntu 26.04 “Resolute” is Lyrical’s base, inferred from the `-resolute` image tag and the ROS biennial LTS cadence; neither the Lyrical page nor REP-2000 stated it directly.[^mc1-note]
-- Lyrical’s LTS status is a supported inference from the ROS lifecycle horizon and Jetty’s LTS designation, not a REP-2000 declaration.[^ros-eol][^jetty-img]
+- Ubuntu 26.04 “Resolute” is Kilted’s base, inferred from the `-resolute` image tag and the ROS biennial LTS cadence; neither the Kilted page nor REP-2000 stated it directly.[^mc1-note]
+- Kilted’s LTS status is a supported inference from the ROS lifecycle horizon and Ionic’s LTS designation, not a REP-2000 declaration.[^ros-eol][^ionic-img]
 - Ogre2 requires OpenGL 3.3 or later and a recent Mesa stack for software rendering.[^ogre2-mesa]
 - `osrf/ros:jazzy-simulation` bundles Gazebo Harmonic and is a viable fallback image.[^ros-docker-hub]
 
 ### Low-Confidence Findings
 
 - Svelte with Golden Layout v2 is an architectural recommendation, not a benchmark result.[^q-r8]
-- Lyrical ecosystem coverage being “thin” was expected from its age but was not measured.[^spike-a-note]
+- Kilted ecosystem coverage being “thin” was expected from its age but was not measured.[^spike-a-note]
 - A `foxglove_bridge` image location was reported but not verified live.[^bridge-auth]
 
 ### Unresolved Evidence Gaps
 
-- Availability of `ros-lyrical-rosbridge-suite` remains unknown until SPIKE-A P2.
-- Availability of `ros-lyrical-ros-gz` remains unknown until SPIKE-A P4.
-- Existence of `osrf/ros:lyrical-simulation` is doubtful and must not be assumed.
+- Availability of `ros-kilted-rosbridge-suite` remains unknown until SPIKE-A P2.
+- Availability of `ros-kilted-ros-gz` remains unknown until SPIKE-A P4.
+- Existence of `osrf/ros:kilted-simulation` is doubtful and must not be assumed.
 - N-08 performance targets remain explicitly deferred.
-- REP-2000 had no Lyrical section at the research date.[^rep2000]
+- REP-2000 had no Kilted section at the research date.[^rep2000]
 
 ## References
 
@@ -1650,12 +1650,12 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 | Repository or URL | Purpose | Research status |
 |---|---|---|
 | `jmservera/uberos` at `3d2d4629` | Primary repository | Verified[^spec-url] |
-| <https://docs.ros.org/en/lyrical/Releases/Release-Lyrical-Luth.html> | Canonical Lyrical release notes supplied by the user | Verified[^lyrical-page] |
-| <https://hub.docker.com/v2/repositories/library/ros/tags?name=lyrical-ros-base> | Docker Hub API for the Lyrical base tag | Verified[^lyrical-base] |
-| <https://github.com/openrobotics/gz_oci_images> | Current Gazebo container registry | Verified[^jetty-img] |
+| <https://docs.ros.org/en/kilted/Releases/Release-Kilted-Kaiju.html> | Canonical Kilted release notes supplied by the user | Verified[^kilted-page] |
+| <https://hub.docker.com/v2/repositories/library/ros/tags?name=kilted-ros-base> | Docker Hub API for the Kilted base tag | Verified[^kilted-base] |
+| <https://github.com/openrobotics/gz_oci_images> | Current Gazebo container registry | Verified[^ionic-img] |
 | <https://raw.githubusercontent.com/gazebosim/docs/master/tools/versions.md> | Gazebo version and EOL table | Verified[^gz-eol] |
 | <https://endoflife.date/ros-2> | ROS 2 lifecycle schedule | Verified[^ros-eol] |
-| <https://www.ros.org/reps/rep-2000.html> | ROS 2 target platforms | Verified; no Lyrical section[^rep2000] |
+| <https://www.ros.org/reps/rep-2000.html> | ROS 2 target platforms | Verified; no Kilted section[^rep2000] |
 | <https://gazebosim.org/docs/latest/ros_installation/> | Official ROS and Gazebo pairings | Verified[^ros-gz-pair] |
 | `RobotWebTools/rosbridge_suite`, `ros2` branch | rosbridge server, protocol, and origin behavior | Verified[^bridge-auth][^rosbridge] |
 | `RobotWebTools/roslibjs` | Browser rosbridge client, npm package `roslib` v2.1.0 | Verified[^roslibjs] |
@@ -1665,7 +1665,7 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 | `gazebosim/gz-fuel-tools` | Fuel cache configuration | Reviewed |
 | `.squad/agents/neo/history.md:15-21` | Gazebo Docker deprecation evidence | Verified[^spec-neo-hist] |
 | <https://docs.docker.com/compose/how-tos/networking/> | Compose networking and namespace behavior | Verified |
-| <https://docs.ros.org/en/jazzy/Tutorials/Advanced/Improved-Dynamic-Discovery.html> | ROS 2 DDS discovery configuration | Verified |
+| <https://docs.ros.org/en/kilted/Tutorials/Advanced/Improved-Dynamic-Discovery.html> | ROS 2 DDS discovery configuration | Verified |
 
 [spec-url]: https://github.com/jmservera/uberos/blob/3d2d4629352fdea8acba94c4fe40a2a7808bd21f/docs/specs/01-Init.md "UbeROS spec 01-Init.md at 3d2d4629"
 
@@ -1675,21 +1675,21 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 
 [^spec-r]: Spec §8 research questions R1–R10 at L112–L121. Evidence correction MC-3 identifies R1 at L112 and R10 at L121.
 
-[^lyrical-page]: ROS Lyrical Luth release page: <https://docs.ros.org/en/lyrical/Releases/Release-Lyrical-Luth.html>, fetched 2026-07-17. It confirms EventsCBGExecutor, AsyncNode, `rosidl::Buffer`, YAML type annotations, fish shell support through `source /opt/ros/lyrical/setup.fish`, and the 2026-05-22 release date.
+[^kilted-page]: ROS Kilted Kaiju release page: <https://docs.ros.org/en/kilted/Releases/Release-Kilted-Kaiju.html>, fetched 2026-07-17. It confirms EventsCBGExecutor, AsyncNode, `rosidl::Buffer`, YAML type annotations, fish shell support through `source /opt/ros/kilted/setup.fish`, and the 2026-05-22 release date.
 
-[^lyrical-base]: Docker Hub v2 API for `ros:lyrical-ros-base`: tag alias `lyrical-ros-base-resolute`, active status, amd64 digest `sha256:9c352f94…`, arm64 digest `sha256:714c24a5…`, and `last_pushed` 2026-07-16. MC-1 identifies Ubuntu 26.04 “Resolute,” not Noble 24.04. Source: <https://hub.docker.com/v2/repositories/library/ros/tags?name=lyrical-ros-base&page_size=5>.
+[^kilted-base]: Docker Hub v2 API for `ros:kilted-ros-base`: tag alias `kilted-ros-base-resolute`, active status, amd64 digest `sha256:9c352f94…`, arm64 digest `sha256:714c24a5…`, and `last_pushed` 2026-07-16. MC-1 identifies Ubuntu 26.04 “Resolute,” not Noble 24.04. Source: <https://hub.docker.com/v2/repositories/library/ros/tags?name=kilted-ros-base&page_size=5>.
 
-[^jetty-img]: `ghcr.io/openrobotics/gazebo:jetty-full` was confirmed for amd64 and arm64 and designated LTS. Source: <https://github.com/openrobotics/gz_oci_images>, README at SHA `65575bac18fe8ef8043da9588adfdc136c084975`, fetched 2026-07-17. The repository states images are updated weekly at midnight GMT on Sunday.
+[^ionic-img]: `ghcr.io/openrobotics/gazebo:ionic-full` was confirmed for amd64 and arm64 and designated LTS. Source: <https://github.com/openrobotics/gz_oci_images>, README at SHA `65575bac18fe8ef8043da9588adfdc136c084975`, fetched 2026-07-17. The repository states images are updated weekly at midnight GMT on Sunday.
 
-[^gz-eol]: Gazebo version and EOL table: <https://raw.githubusercontent.com/gazebosim/docs/master/tools/versions.md>, fetched 2026-07-17. It records Gazebo Classic 11 EOL on 2025-01-25, Gazebo Jetty (`gz-sim10`) stable through 2031-05, and Gazebo Harmonic (`gz-sim8`) stable through 2029-05.
+[^gz-eol]: Gazebo version and EOL table: <https://raw.githubusercontent.com/gazebosim/docs/master/tools/versions.md>, fetched 2026-07-17. It records Gazebo Classic 11 EOL on 2025-01-25, Gazebo Ionic (`gz-sim10`) stable through 2031-05, and Gazebo Harmonic (`gz-sim8`) stable through 2029-05.
 
 [^ros-eol]: ROS 2 lifecycle schedule: <https://endoflife.date/ros-2>, last updated 2026-06-01 and accessed 2026-07-17. It records Iron EOL in November 2024, Humble in May 2027, Jazzy in May 2029, Kilted in November 2026, and Lyrical ending in approximately May 2031. REP-2000 had no Lyrical section at the research date.
 
-[^rep2000]: REP-2000 live review on 2026-07-17: <https://www.ros.org/reps/rep-2000.html>. The page covered Humble, Iron, Jazzy, Kilted, and Rolling, then ended after Rolling Ridley. It must not be cited as authority for Lyrical’s platform tier or LTS status.
+[^rep2000]: REP-2000 live review on 2026-07-17: <https://www.ros.org/reps/rep-2000.html>. The page covered Humble, Iron, Jazzy, Kilted, and Rolling, then ended after Rolling Ridley. It must not be cited as authority for Kilted’s platform tier or LTS status.
 
 [^ros-gz-pair]: Official ROS and Gazebo pairings: <https://gazebosim.org/docs/latest/ros_installation/>, fetched 2026-07-17. It lists Humble with Fortress, Jazzy with Harmonic vendor packages, Kilted with Ionic, and Rolling with Jetty.
 
-[^ros-docker-hub]: Official ROS Docker image guidance: <https://hub.docker.com/_/ros>, accessed 2026-07-17. It documents multi-stage builds, distinguishes `ros-base` from `ros-core`, and recommends a `/root/.ros/` volume. Research also recorded `osrf/ros:jazzy-simulation` as a roughly 735 MB image bundling Gazebo Harmonic, last pushed 2026-07-17.
+[^ros-docker-hub]: Official ROS Docker image guidance: <https://hub.docker.com/_/ros>, accessed 2026-07-17. It documents multi-stage builds, distinguishes `ros-base` from `ros-core`, and recommends a `/root/.ros/` volume. Research also recorded `osrf/ros:ionic-simulation` as a roughly 735 MB image bundling Gazebo Harmonic, last pushed 2026-07-17.
 
 [^spec-lifecycle]: Spec §9 lifecycle model: <https://github.com/jmservera/uberos/blob/3d2d4629352fdea8acba94c4fe40a2a7808bd21f/docs/specs/01-Init.md#L123>. Lines 123–132 separate workload/session and browser-view lifecycles and state that conflating them causes data loss or zombie containers. The same finding appears in `.squad/agents/morpheus/history.md:12`.
 
@@ -1713,7 +1713,7 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 
 [^dds-multicast]: Docker bridge networking guidance: <https://docs.docker.com/engine/network/drivers/bridge/>. DDS default subnet discovery relies on multicast, which is not available across the proposed bridge topology without explicit configuration. Compose platform research record `a6cf09:§3.2` documents the resulting silent ROS discovery failure.
 
-[^dds-domain]: ROS 2 domain ID guidance: <https://docs.ros.org/en/jazzy/Concepts/Intermediate/About-Domain-ID.html>. IDs 0–101 and 215–232 avoid Linux ephemeral-port collisions; `42` is safe across the target platforms.
+[^dds-domain]: ROS 2 domain ID guidance: <https://docs.ros.org/en/kilted/Concepts/Intermediate/About-Domain-ID.html>. IDs 0–101 and 215–232 avoid Linux ephemeral-port collisions; `42` is safe across the target platforms.
 
 [^gpu-macos]: Docker Desktop GPU guidance: <https://docs.docker.com/desktop/features/gpu/>. GPU support is available only on Windows with the WSL2 backend; macOS cannot pass a GPU through to containers.
 
@@ -1753,10 +1753,10 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 
 [^bc97c0-vol]: Storage research record `bc97c0:§3.4`, cross-checked with Docker Compose volume guidance: named volumes are preferred for portable build artifacts, while editable source remains bind-mounted.
 
-[^rosbridge]: rosbridge sources include `RobotWebTools/rosbridge_suite:QUALITY_DECLARATION.md` at Quality Level 3 and `ROSBRIDGE_PROTOCOL.md` v2.1.0. Humble, Jazzy, and Rolling support was confirmed; `ros-jazzy-rosbridge-suite` was verified, while the Lyrical package remained a SPIKE-A question.
+[^rosbridge]: rosbridge sources include `RobotWebTools/rosbridge_suite:QUALITY_DECLARATION.md` at Quality Level 3 and `ROSBRIDGE_PROTOCOL.md` v2.1.0. Humble, Jazzy, and Rolling support was confirmed; `ros-ionic-rosbridge-suite` was verified, while the Kilted package remained a SPIKE-A question.
 
-[^mc1-note]: MC-1 corrects an earlier “Noble 24.04” statement. Lyrical’s base is Ubuntu 26.04 “Resolute,” inferred from Docker tag `lyrical-ros-base-resolute` and supported by evidence review `e0496c:MC-1`.
+[^mc1-note]: MC-1 corrects an earlier “Noble 24.04” statement. Kilted’s base is Ubuntu 26.04 “Resolute,” inferred from Docker tag `kilted-ros-base-resolute` and supported by evidence review `e0496c:MC-1`.
 
 [^c04]: Contradiction C-04 is resolved in favor of spec §5: its explicit “minimize” capability is more specific than §3 G5’s “arrange and resize,” so minimize remains required.
 
-[^spike-a-note]: The description of Lyrical’s ecosystem as “thin at eight weeks” is an expected inference, not a measured fact. SPIKE-A in records `d4df8c` and `cb5c18:R2` is the verification mechanism.
+[^spike-a-note]: The description of Kilted’s ecosystem as “thin at eight weeks” is an expected inference, not a measured fact. SPIKE-A in records `d4df8c` and `cb5c18:R2` is the verification mechanism.

@@ -30,9 +30,10 @@ pop-out.
 
 With the core experience working, day-to-day use has surfaced usability gaps and defects
 that reduce operator confidence: closed panels cannot be recovered, pop-out windows render
-empty, terminal creation is limited, there is no central control surface for the workspace,
-and the documented optional authentication is not actually wired into the proxy. Two open
-technical questions — streaming smoothness and GPU/accelerator compatibility — also need
+empty, terminal creation is limited, and there is no central control surface for the workspace.
+Optional authentication is now wired into the proxy via `UBEROS_AUTH`, but UX controls are still
+needed to make auth/session handling discoverable in the UI. Two open technical questions —
+streaming smoothness and GPU/accelerator compatibility — also need
 evidence before further investment.
 
 This BRD captures the business needs for a coordinated workspace-management and operational-
@@ -66,7 +67,7 @@ These gaps erode trust in the environment and slow the develop-build-test loop.
 | BO-2 | Pop-out windows are fully usable | Popped-out panel shows live content without a dock/undock workaround | Empty on pop-out | Content visible on pop-out (qualitative) | This iteration | Must |
 | BO-3 | Flexible terminal management | Operator can create N terminals and dock/undock/pop-out each | Fixed set, no + control | Create, dock-together, undock, and pop-out terminals | This iteration | Must |
 | BO-4 | Central operational control | Menu exposes show/hide, layouts, service reset, and logout | No menu | Menu present with all four control groups | This iteration | Must |
-| BO-5 | Optional authentication is real | `UBEROS_AUTH` toggles proxy auth without code edits | Documented but inert | Toggle enables/disables auth via `.env` | This iteration | Should |
+| BO-5 | Optional authentication is real | `UBEROS_AUTH` toggles proxy auth without code edits | Toggle implemented; UI session affordances still limited | Toggle enables/disables auth via `.env` | This iteration | Should |
 | BO-6 | Evidence for streaming and hardware | Documented research comparing Guacamole vs noVNC and Intel/OpenVINO feasibility; implement OpenVINO if feasible | None | Guacamole research write-up; OpenVINO write-up plus implementation if feasible | This iteration | Should |
 
 ## 4. Stakeholders and Roles
@@ -113,7 +114,7 @@ These gaps erode trust in the environment and slow the develop-build-test loop.
 - Pop-out opens a browser window that renders empty until the panel is re-docked.
 - Terminals are a fixed set; there is no control to spawn a new session.
 - There is no menu; layout, service health, and auth are managed outside the UI.
-- `UBEROS_AUTH=basic` and an `.htpasswd` have no effect because the proxy `auth_basic` lines are commented out.
+- `UBEROS_AUTH` can already toggle proxy basic authentication, but auth/session controls remain mostly outside the UI flow.
 
 ### Future State
 

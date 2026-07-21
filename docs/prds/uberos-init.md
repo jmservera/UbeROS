@@ -151,16 +151,16 @@ Not applicable for Init. No analytics or telemetry are in scope.
 ## 9. Dependencies
 | Dependency | Type | Criticality | Owner | Risk | Mitigation |
 |-----------|------|------------|-------|------|-----------|
-| ROS base image (`ros:${ROS_DISTRO}-ros-base`) | Upstream image | Critical | Neo | Distro package coverage (Lyrical) | SPIKE-A verification; Jazzy fallback |
+| ROS base image (`ros:${ROS_DISTRO}-ros-base`) | Upstream image | Critical | Neo | Distro package coverage (Kilted) | SPIKE-A verification; Jazzy fallback |
 | Gazebo image (`ghcr.io/openrobotics/gazebo:${GZ_RELEASE}-full`) | Upstream image | Critical | Neo | Image availability | SPIKE-A P3; Harmonic fallback |
-| rosbridge_suite | ROS package | Critical | Neo | Lyrical package availability | SPIKE-A P2; build from source |
+| rosbridge_suite | ROS package | Critical | Neo | Kilted package availability | SPIKE-A P2; build from source |
 | Fast DDS discovery | Networking | Critical | Neo | Silent multicast discovery failure | Explicit discovery server (WP-5) |
 | ttyd binary | Terminal transport | High | Trinity/Switch | Architecture mismatch (arm64) | Pin binary; select by `TARGETARCH` |
 
 ## 10. Risks & Mitigations
 | Risk ID | Description | Severity | Likelihood | Mitigation | Owner | Status |
 |---------|-------------|---------|-----------|-----------|-------|--------|
-| RISK-1 | Lyrical ecosystem gaps (rosbridge, ros-gz) | High | Medium | SPIKE-A passed 2026-07-17: rosbridge-suite 4.2.0, ros-gz 3.0.9 available; Jazzy fallback retained | Neo | Mitigated |
+| RISK-1 | Kilted ecosystem gaps (rosbridge, ros-gz) | High | Medium | SPIKE-A passed 2026-07-17: rosbridge-suite 4.2.0, ros-gz 3.0.9 available; Jazzy fallback retained | Neo | Mitigated |
 | RISK-2 | Ogre2 software-rendering crash | High | Low | Mesa overrides; wait for Xvfb; Jazzy fallback | Neo | Open |
 | RISK-4 | Silent DDS discovery failure | Critical | High | Fast DDS discovery server (WP-5) | Neo | Open |
 | RISK-7 | ttyd architecture mismatch | High | Medium | Pin ttyd; `TARGETARCH` selection | Trinity | Open |
@@ -195,7 +195,7 @@ rosbridge has no native authentication (`check_origin` always true); backend por
 ### Phases / Milestones
 | Phase | Date | Gate Criteria | Owner |
 |-------|------|--------------|-------|
-| SPIKE-A | Day 1 | Lyrical/Jetty verification recorded in ADR-001 | Neo |
+| SPIKE-A | Day 1 | Kilted/Ionic verification recorded in ADR-001 | Neo |
 | Scaffolding (WP-0) | Day 1–2 | `docker compose config` parses | Trinity |
 | Components | Day 3–5 | ROS, simulator, proxy, editor, terminal, frontend built | Squad |
 | Integration (WP-10) | After components | All services healthy within 120s | Trinity |
@@ -214,7 +214,7 @@ TBD.
 ## 14. Open Questions
 | Q ID | Question | Owner | Deadline | Status |
 |------|----------|-------|---------|--------|
-| U-D1 | ROS 2 distribution | jmservera / Neo | Before WP-0 | Resolved — Lyrical (SPIKE-A passed; Jazzy fallback) |
+| U-D1 | ROS 2 distribution | jmservera / Neo | Before WP-0 | Resolved — Kilted (SPIKE-A passed; Jazzy fallback) |
 | U-D2 | Reverse proxy | jmservera / Trinity | Before WP-0 | Resolved — Nginx |
 | U-D3 | Terminal transport | jmservera / Switch | Before WP-2/WP-9 | Resolved — ttyd inside ROS container |
 | U-D4 | Frontend framework + window manager | jmservera / Switch | Before WP-9 | Resolved — Svelte + Golden Layout v2 |
@@ -235,7 +235,7 @@ TBD.
 |--------|------|--------|---------|--------------------|
 | REF-1 | Spec | docs/specs/01-Init.md | Canonical project brief; source of truth for scope | Precedence over research |
 | REF-2 | Research | docs/specs/01-Init-research.md | Implementation guidance and decision analysis | Subordinate to spec |
-| REF-3 | External | ROS Lyrical release page | Lyrical feature and release evidence | Verify via SPIKE-A |
+| REF-3 | External | ROS Kilted release page | Kilted feature and release evidence | Verify via SPIKE-A |
 
 ### Citation Usage
 Goals and requirements derive from spec §3, §7, §10; requirement IDs and work-package mapping derive from the research report's traceability tables.
@@ -248,7 +248,7 @@ Goals and requirements derive from spec §3, §7, §10; requirement IDs and work
 | rosbridge | WebSocket bridge exposing the ROS graph to browsers |
 | ttyd | WebSocket PTY server providing browser terminals |
 | DDS | Data Distribution Service, ROS 2 middleware transport |
-| SPIKE-A | Mandatory Lyrical/Jetty image and package verification |
+| SPIKE-A | Mandatory Kilted/Ionic image and package verification |
 
 ### Additional Notes
 Spec-locked decisions (D1–D11) and deferred questions (D-01..D-09) from the research report are treated as settled and are not reopened during Init.

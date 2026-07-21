@@ -40,7 +40,7 @@ proxy port.
 
 | Criterion | Spec intent | Machine-testable check | File |
 |-----------|-------------|------------------------|------|
-| S1 | `docker compose up` starts all services without error | All 7 services report `healthy`; `/healthz` returns `200 "ok"` | `acceptance/s1-stack-health.spec.js` |
+| S1 | `docker compose up` starts all services without error | The S1 health assertion checks 7 runtime services (`discovery-server`, `ros`, `simulator`, `vnc`, `editor`, `frontend`, `proxy`) report `healthy`; `/healthz` returns `200 "ok"` | `acceptance/s1-stack-health.spec.js` |
 | S2 | Window manager with ≥ 1 panel | Root returns 200; ≥ 1 `iframe.panel-frame[src]` in the DOM | `acceptance/s2-window-manager.spec.js` |
 | S3 | ROS command in a terminal shows output | ttyd endpoint serves; `/rosout` visible via rosbridge within 5s | `acceptance/s3-terminal-ros.spec.js` |
 | S4 | Simulator GUI visible in noVNC | Non-blank noVNC canvas within 30s (> 5% non-black pixels) | `acceptance/s4-novnc-frame.spec.js` |

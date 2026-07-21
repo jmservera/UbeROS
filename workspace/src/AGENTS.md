@@ -6,8 +6,8 @@ This workspace uses the following Copilot guidance files:
 
 ## Agent Expectations
 
-- Follow ROS 2 Lyrical workflows (colcon, `ament_cmake`, `ament_python`, `rclcpp`, `rclpy`).
-- Prefer Gazebo Jetty (`gz`) commands and APIs.
+- Follow ROS 2 Kilted workflows (colcon, `ament_cmake`, `ament_python`, `rclcpp`, `rclpy`).
+- Prefer Gazebo Ionic (`gz`) commands and APIs.
 - Keep changes minimal, consistent, and Linux reproducible.
 - Avoid ROS 1 (`catkin`, `roscore`) guidance unless explicitly requested.
 

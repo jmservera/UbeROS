@@ -1,13 +1,13 @@
-# Copilot Instructions for ROS 2 Lyrical + Gazebo Jetty
+# Copilot Instructions for ROS 2 Kilted + Gazebo Ionic
 
 These instructions define how Copilot should assist in this repository.
 
 ## Scope and Assumptions
 
-- Target middleware stack: ROS 2 Lyrical.
-- Target simulator: Gazebo Jetty.
+- Target middleware stack: ROS 2 Kilted.
+- Target simulator: Gazebo Ionic.
 - Workspace style: colcon-based ROS 2 workspace.
-- Favor solutions aligned with official ROS 2 Lyrical tutorials and Gazebo Jetty documentation.
+- Favor solutions aligned with official ROS 2 Kilted tutorials and Gazebo Ionic documentation.
 
 ## General Expectations
 
@@ -71,9 +71,9 @@ colcon test --packages-select <pkg_name>
 
 For linting, prefer ROS 2 standard linters where configured (`ament_lint_auto`, `ament_cpplint`, `ament_flake8`, `ament_uncrustify`).
 
-## Gazebo Jetty Integration Guidance
+## Gazebo Ionic Integration Guidance
 
-- Prefer modern Gazebo (`gz`) tooling and APIs compatible with Jetty.
+- Prefer modern Gazebo (`gz`) tooling and APIs compatible with Ionic.
 - Keep simulation resources organized (worlds, models, meshes, plugins) under package directories and install them correctly.
 - Use launch patterns that make simulator startup optional via launch args.
 - If bridging with ROS 2 topics, use explicit bridge mappings and document directionality.
@@ -104,12 +104,12 @@ gz sim <world_file.sdf>
 ## Documentation and References
 
 - Align recommendations with:
-  - ROS 2 Lyrical Tutorials: https://docs.ros.org/en/lyrical/Tutorials.html
-  - Gazebo Jetty docs and install pages: https://gazebosim.org/docs/latest/install/
+  - ROS 2 Kilted Tutorials: https://docs.ros.org/en/kilted/Tutorials.html
+  - Gazebo Ionic docs and install pages: https://gazebosim.org/docs/latest/install/
 - If uncertainty exists between distributions/releases, call it out explicitly and suggest verification steps.
 
 ## What Copilot Should Avoid
 
 - Do not mix ROS 1 (`catkin`, `roscore`) workflows into ROS 2 guidance.
-- Do not suggest deprecated Gazebo Classic commands when Jetty-native alternatives are expected.
+- Do not suggest deprecated Gazebo Classic commands when Ionic-native alternatives are expected.
 - Do not hardcode absolute machine-specific paths in launch or config files unless asked.

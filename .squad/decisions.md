@@ -11,9 +11,9 @@ Initial implementation of the UbeROS Init milestone landed the full Docker
 Compose scaffold and first-pass service implementations. Key decisions (recorded
 as ADRs under `docs/decisions/`):
 
-- ADR-001 ROS distribution: **Lyrical** (`ROS_DISTRO=lyrical`, `GZ_RELEASE=jetty`).
-  SPIKE-A passed on 2026-07-17 — `ros:lyrical-ros-base`, `rosbridge-suite` 4.2.0,
-  `rosapi`, `ros-gz` 3.0.9, and the Jetty image all verified. Jazzy/Harmonic
+- ADR-001 ROS distribution: **Kilted** (`ROS_DISTRO=kilted`, `GZ_RELEASE=ionic`).
+  SPIKE-A passed on 2026-07-17 — `ros:kilted-ros-base`, `rosbridge-suite` 4.2.0,
+  `rosapi`, `ros-gz` 3.0.9, and the Ionic image all verified. Jazzy/Harmonic
   remain a one-line `.env` fallback.
 - ADR-002 Reverse proxy: **Nginx** (single ingress, WebSocket, auth_basic).
 - ADR-003 Terminal transport: **ttyd inside the ros container** (no Docker socket).

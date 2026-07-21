@@ -2,9 +2,9 @@
 # Provides ROS middleware, colcon toolchain, rosbridge (browser <-> ROS graph),
 # and ttyd (browser terminals). See WP-2 in docs/specs/01-Init-research.md.
 #
-# ROS_DISTRO is parameterized (default lyrical). If SPIKE-A shows a Lyrical
+# ROS_DISTRO is parameterized (default kilted). If SPIKE-A shows a Kilted
 # package gap, switch ROS_DISTRO=jazzy in .env with no other edits (ADR-001).
-ARG ROS_DISTRO=lyrical
+ARG ROS_DISTRO=kilted
 FROM ros:${ROS_DISTRO}-ros-base
 
 # ROS_DISTRO is not automatically re-exposed after FROM; redeclare it.

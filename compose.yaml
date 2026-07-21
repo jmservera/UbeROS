@@ -33,7 +33,7 @@ volumes:
 
 services:
   discovery-server:
-    image: ros:${ROS_DISTRO:-lyrical}-ros-base
+    image: ros:${ROS_DISTRO:-kilted}-ros-base
     command: fastdds discovery -i 0 -l 0.0.0.0 -p 11811
     networks:
       - ros_net
@@ -51,7 +51,7 @@ services:
     build:
       context: ./services/ros
       args:
-        ROS_DISTRO: ${ROS_DISTRO:-lyrical}
+        ROS_DISTRO: ${ROS_DISTRO:-kilted}
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -84,7 +84,8 @@ services:
     build:
       context: ./services/simulator
       args:
-        GZ_RELEASE: ${GZ_RELEASE:-jetty}
+        GZ_RELEASE: ${GZ_RELEASE:-ionic}
+        ROS_DISTRO: ${ROS_DISTRO:-kilted}
     depends_on:
       discovery-server:
         condition: service_healthy

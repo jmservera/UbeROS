@@ -54,8 +54,8 @@ Settings live in `.env` (committed defaults contain no secrets):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ROS_DISTRO` | `lyrical` | ROS 2 distribution (switch to `jazzy` as fallback) |
-| `GZ_RELEASE` | `jetty` | Gazebo release (switch to `harmonic` with Jazzy) |
+| `ROS_DISTRO` | `kilted` | ROS 2 distribution (switch to `jazzy` as fallback) |
+| `GZ_RELEASE` | `ionic` | Gazebo release (switch to `harmonic` with Jazzy) |
 | `UBEROS_PORT` | `8080` | Host port for the proxy |
 | `ROS_DOMAIN_ID` | `42` | DDS domain (cross-platform-safe range) |
 | `UBEROS_AUTH` | `off` | Set to `basic` to enable proxy authentication |
@@ -114,6 +114,8 @@ stored credentials and forces re-authentication.
 - PRD: [docs/prds/uberos-init.md](docs/prds/uberos-init.md)
 - Decisions: [docs/decisions/](docs/decisions/)
 
-> **Note:** The primary ROS distribution (Lyrical) is pending SPIKE-A image and
+> **Note:** The primary ROS distribution (Kilted) passed SPIKE-A image and
 > package verification. See [ADR-001](docs/decisions/ADR-001-ros-distro.md).
-> If verification fails, set `ROS_DISTRO=jazzy` and `GZ_RELEASE=harmonic`.
+> Current implementation defaults are `ROS_DISTRO=kilted` and
+> `GZ_RELEASE=ionic`. If a compatibility rollback is needed, set
+> `ROS_DISTRO=jazzy` and `GZ_RELEASE=harmonic`.

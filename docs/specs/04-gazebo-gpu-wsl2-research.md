@@ -200,7 +200,7 @@ satisfy the OpenGL version and features Gazebo's default renderer demands.
 
 ## Root-Cause Hypothesis
 
-Gazebo Jetty/Harmonic (`gz sim`) defaults to the **`ogre2`** render engine.
+Gazebo Ionic/Harmonic (`gz sim`) defaults to the **`ogre2`** render engine.
 `ogre2` (OGRE-Next) targets a modern GL 3.3+ core profile and uses features such
 as compute shaders, texture arrays, and UBO/SSBO paths that assume a fairly
 complete desktop-GL implementation. Mesa's **`d3d12` (dozen)** Gallium driver on
@@ -252,7 +252,7 @@ subset against `vnc` only to prove the sidecar does **not** need the GPU.
 | 6 | `docker compose exec simulator sh -lc 'glxinfo -B'` | **The headline test** — actual GL renderer on `:99` | Success = "Device: … (D3D12)" / an Intel adapter string. **Failure = `llvmpipe`** (software). This is the pass/fail signal for FR-E2. |
 | 7 | `docker compose exec simulator sh -lc 'GALLIUM_DRIVER=d3d12 LIBGL_ALWAYS_SOFTWARE=0 glxinfo -B'` | Force dozen explicitly | If this shows the Intel adapter but step 6 did not, an env/loader-path issue (hypothesis 2/3) is the cause, not driver absence. |
 | 8 | `docker compose exec simulator sh -lc 'MESA_GL_VERSION_OVERRIDE=4.6 MESA_GLSL_VERSION_OVERRIDE=460 glxinfo -B \| grep -i "opengl version"'` | GL level reachable via dozen | Records the GL version dozen actually exposes; compare against `ogre2`'s 3.3+/compute needs (hypothesis 1/3). |
-| 9 | `docker compose exec simulator sh -lc 'gz sim --version'` | Gazebo release | Confirms Jetty/Harmonic and thus that `ogre2` is the default engine. |
+| 9 | `docker compose exec simulator sh -lc 'gz sim --version'` | Gazebo release | Confirms Ionic/Harmonic and thus that `ogre2` is the default engine. |
 | 10 | `docker compose exec simulator sh -lc 'command -v vulkaninfo && vulkaninfo \| grep -Ei "deviceName\|driverName"'` | Vulkan availability (dozen's sibling / OGRE Vulkan) | If a real Vulkan device (not `llvmpipe`) appears, the Vulkan render path (candidate b) is viable. Missing `vulkaninfo` → `vulkan-tools` not in the image. |
 | 11 | `docker compose exec simulator sh -lc 'ls -l /tmp/.X11-unix; xdpyinfo -display :99 \| head'` | The Xvfb `:99` server the GUI uses | Confirms the same display the renderer targets; rules out a second, un-accelerated X server. |
 | 12 | `docker compose exec vnc sh -lc 'ls -l /dev/dxg 2>&1; echo ---; glxinfo -B 2>&1 \| head'` | Prove the sidecar does **not** render | `vnc` need not see `/dev/dxg`; it only streams `:99`. Confirms GPU work belongs to `simulator`, not `vnc`. |
