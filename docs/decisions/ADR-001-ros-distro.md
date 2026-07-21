@@ -8,10 +8,10 @@
 
 ## Context
 
-UbeROS needs a ROS 2 baseline distribution. The candidates are Kilted Kaiju
-(Ubuntu 26.04, Gazebo Ionic, support to ~May 2031), Jazzy Jalisco (Ubuntu 24.04,
+UbeROS needs a ROS 2 baseline distribution. The candidates are Lyrical Luth
+(Ubuntu 26.04, Gazebo Jetty, support to ~May 2031), Jazzy Jalisco (Ubuntu 24.04,
 Gazebo Harmonic, proven ecosystem to ~May 2029), and Humble (nearing EOL).
-Kilted offers the longest runway but its ecosystem package coverage
+Lyrical offers the longest runway but its ecosystem package coverage
 (`rosbridge-suite`, `ros-gz`) was unverified at research time.
 
 During development we confirmed that the Jetty image uses Ubuntu Noble, which blocks the ROS 2 Lyrical package path on that image. Gazebo Ionic remains compatible with both Jazzy and Kilted, so it was retained while the repository baseline stayed on Kilted.
@@ -33,7 +33,7 @@ falling back to **Jazzy Jalisco** is a one-line change with no other edits.
 
 - Longest support horizon if SPIKE-A passes.
 - If SPIKE-A P2/P4 fail, either install the missing packages from source or set
-  `ROS_DISTRO=ionic` and `GZ_RELEASE=harmonic`.
+  `ROS_DISTRO=jazzy` and `GZ_RELEASE=harmonic`.
 - SPIKE-A results must be recorded in this ADR before any image is relied upon.
 
 ## SPIKE-A results

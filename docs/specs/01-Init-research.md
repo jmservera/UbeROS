@@ -1537,7 +1537,7 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 >
 > - **Probability:** Low; the image existed and was updated regularly at the research date.
 > - **Impact:** High; WP-3 is blocked.
-> - **Mitigation:** Run SPIKE-A P3 and fall back to `osrf/ros:ionic-simulation` with Harmonic.
+> - **Mitigation:** Run SPIKE-A P3 and fall back to `osrf/ros:jazzy-simulation` with Harmonic.
 
 > **Risk:** **RISK-4 — Silent DDS discovery failure**
 >
@@ -1627,7 +1627,7 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 - Ubuntu 26.04 “Resolute” is Kilted’s base, inferred from the `-resolute` image tag and the ROS biennial LTS cadence; neither the Kilted page nor REP-2000 stated it directly.[^mc1-note]
 - Kilted’s LTS status is a supported inference from the ROS lifecycle horizon and Ionic’s LTS designation, not a REP-2000 declaration.[^ros-eol][^ionic-img]
 - Ogre2 requires OpenGL 3.3 or later and a recent Mesa stack for software rendering.[^ogre2-mesa]
-- `osrf/ros:ionic-simulation` bundles Gazebo Harmonic and is a viable fallback image.[^ros-docker-hub]
+- `osrf/ros:jazzy-simulation` bundles Gazebo Harmonic and is a viable fallback image.[^ros-docker-hub]
 
 ### Low-Confidence Findings
 
@@ -1683,11 +1683,11 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 
 [^gz-eol]: Gazebo version and EOL table: <https://raw.githubusercontent.com/gazebosim/docs/master/tools/versions.md>, fetched 2026-07-17. It records Gazebo Classic 11 EOL on 2025-01-25, Gazebo Ionic (`gz-sim10`) stable through 2031-05, and Gazebo Harmonic (`gz-sim8`) stable through 2029-05.
 
-[^ros-eol]: ROS 2 lifecycle schedule: <https://endoflife.date/ros-2>, last updated 2026-06-01 and accessed 2026-07-17. It records Iron EOL in November 2024, Humble in May 2027, Jazzy in May 2029, Kilted in November 2026, and Kilted ending in approximately May 2031. REP-2000 had no Kilted section at the research date.
+[^ros-eol]: ROS 2 lifecycle schedule: <https://endoflife.date/ros-2>, last updated 2026-06-01 and accessed 2026-07-17. It records Iron EOL in November 2024, Humble in May 2027, Jazzy in May 2029, Kilted in November 2026, and Lyrical ending in approximately May 2031. REP-2000 had no Lyrical section at the research date.
 
 [^rep2000]: REP-2000 live review on 2026-07-17: <https://www.ros.org/reps/rep-2000.html>. The page covered Humble, Iron, Jazzy, Kilted, and Rolling, then ended after Rolling Ridley. It must not be cited as authority for Kilted’s platform tier or LTS status.
 
-[^ros-gz-pair]: Official ROS and Gazebo pairings: <https://gazebosim.org/docs/latest/ros_installation/>, fetched 2026-07-17. It lists Humble with Fortress, Jazzy with Harmonic vendor packages, Kilted with Ionic, and Rolling with Ionic.
+[^ros-gz-pair]: Official ROS and Gazebo pairings: <https://gazebosim.org/docs/latest/ros_installation/>, fetched 2026-07-17. It lists Humble with Fortress, Jazzy with Harmonic vendor packages, Kilted with Ionic, and Rolling with Jetty.
 
 [^ros-docker-hub]: Official ROS Docker image guidance: <https://hub.docker.com/_/ros>, accessed 2026-07-17. It documents multi-stage builds, distinguishes `ros-base` from `ros-core`, and recommends a `/root/.ros/` volume. Research also recorded `osrf/ros:ionic-simulation` as a roughly 735 MB image bundling Gazebo Harmonic, last pushed 2026-07-17.
 

@@ -6,7 +6,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 COPY package.json ./
-COPY server.js ./
+COPY server.js simulators.js ./
 
 # No dependencies to install (stdlib only); npm ci is skipped intentionally.
 
