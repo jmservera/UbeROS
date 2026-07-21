@@ -4,7 +4,6 @@
   import 'golden-layout/dist/css/goldenlayout-base.css';
   import 'golden-layout/dist/css/themes/goldenlayout-dark-theme.css';
   import {
-    buildSimulatorPanel,
     buildTerminalPanel,
     buildEditorPanel,
     buildRosStatusPanel,
@@ -75,7 +74,6 @@
   let configError = '';
 
   const factories = {
-    simulator: buildSimulatorPanel,
     terminal: buildTerminalPanel,
     editor: buildEditorPanel,
     'ros-status': buildRosStatusPanel,
@@ -828,6 +826,7 @@
                 <span class="svc-name">{sim.label}</span>
                 <span class="sim-state">{sim.state}</span>
                 {#if sim.state === 'running' || sim.state === 'starting'}
+                  <button class="svc-reset" on:click={() => { openSimulatorPanel(sim); closeMenu(); }}>Open</button>
                   <button class="svc-reset" disabled={simBusy === sim.id} on:click={() => stopSim(sim.id)}>
                     {simBusy === sim.id ? '…' : 'Stop'}
                   </button>

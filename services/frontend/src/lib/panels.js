@@ -30,17 +30,6 @@ function makeIframe(src) {
 // list, hide/show, reopen, and pop out panels without hard-coding each type,
 // and so future panels plug in by adding an entry here.
 export const PANEL_DEFS = {
-  simulator: {
-    componentType: 'simulator',
-    title: 'Simulator',
-    // Gazebo now streams SCENE STATE to the self-hosted gzweb client (Theme F);
-    // the retired noVNC pixel stream is gone. The client connects to the
-    // WebsocketServer through the proxy at /gzweb/ws/ (see the gazebo registry
-    // entry's panelRoute + transport `gzweb`).
-    url: '/gzweb/',
-    popout: true,
-    singleton: true,
-  },
   terminal: {
     componentType: 'terminal',
     title: 'Terminal',
@@ -66,12 +55,6 @@ export const PANEL_DEFS = {
   },
 };
 
-export function buildSimulatorPanel(el) {
-  // gzweb scene-state client served under /gzweb/ (Theme F). Same-origin iframe
-  // through the single proxy; the client opens the /gzweb/ws/ WebSocket itself.
-  el.appendChild(makeIframe(PANEL_DEFS.simulator.url));
-}
-
 // --- Data-driven simulator panels (FR-A3) ------------------------------
 // A simulator registry entry (from GET /control/simulators) maps to a Golden
 // Layout panel whose stream URL is chosen by transport: `vnc` → noVNC iframe,
@@ -79,7 +62,16 @@ export function buildSimulatorPanel(el) {
 // panelRoute through the single proxy origin, so the SPA needs no per-simulator
 // code — adding a registry entry is enough to render its panel (NFR-MAINT-1).
 const SIMULATOR_TRANSPORTS = {
-  vnc: (route) => `${route}vnc.html?autoconnect=true&resize=scale`,
+  vnc: (route) =>
+    // noVNC defaults its WebSocket path to `websockify` at the ORIGIN ROOT
+    // (ws://host/websockify), which the single proxy routes to the frontend,
+    // not the simulator — the handshake then fails ("Unexpected response code
+    // 200"). Pin the path to the simulator's proxied websockify endpoint
+    // (route without leading slash + `websockify`) so the upgrade reaches the
+    // container's websockify (FR-C2). resize=scale fits the GUI to the panel.
+    `${route}vnc.html?autoconnect=true&resize=scale&path=${encodeURIComponent(
+      route.replace(/^\//, '') + 'websockify'
+    )}`,
   gzweb: (route) => route,
 };
 
@@ -244,9 +236,12 @@ function comp(type, width) {
   return node;
 }
 
-// Four predefined layouts the operator can apply from the menu (BR-006):
-// default (four equal), simulator enlarged, code editor enlarged, terminal
-// enlarged. Each preset is a full Golden Layout config passed to loadLayout().
+// Predefined layouts the operator can apply from the menu (BR-006). Simulators
+// are no longer a built-in panel — they are launched/opened on demand from the
+// Simulators menu (FR-A3/FR-B*), so these presets arrange the always-available
+// editor, terminal, and ROS status panels; a launched simulator docks in as a
+// `sim:<id>` panel alongside them. Each preset is a full Golden Layout config
+// passed to loadLayout().
 export const LAYOUTS = {
   default: {
     root: {
@@ -254,26 +249,13 @@ export const LAYOUTS = {
       content: [
         {
           type: 'column',
-          width: 50,
-          content: [comp('simulator'), comp('terminal')],
+          width: 60,
+          content: [comp('editor'), comp('terminal')],
         },
         {
           type: 'column',
-          width: 50,
-          content: [comp('editor'), comp('ros-status')],
-        },
-      ],
-    },
-  },
-  simulator: {
-    root: {
-      type: 'row',
-      content: [
-        comp('simulator', 70),
-        {
-          type: 'column',
-          width: 30,
-          content: [comp('editor'), comp('terminal'), comp('ros-status')],
+          width: 40,
+          content: [comp('ros-status')],
         },
       ],
     },
@@ -286,7 +268,7 @@ export const LAYOUTS = {
         {
           type: 'column',
           width: 30,
-          content: [comp('simulator'), comp('terminal'), comp('ros-status')],
+          content: [comp('terminal'), comp('ros-status')],
         },
       ],
     },
@@ -299,7 +281,7 @@ export const LAYOUTS = {
         {
           type: 'column',
           width: 30,
-          content: [comp('simulator'), comp('editor'), comp('ros-status')],
+          content: [comp('editor'), comp('ros-status')],
         },
       ],
     },
@@ -308,8 +290,7 @@ export const LAYOUTS = {
 
 // Menu-facing preset list (BR-006).
 export const LAYOUT_PRESETS = [
-  { key: 'default', label: 'Default — four equal panels' },
-  { key: 'simulator', label: 'Simulator enlarged' },
+  { key: 'default', label: 'Default — editor, terminal, ROS status' },
   { key: 'editor', label: 'Code editor enlarged' },
   { key: 'terminal', label: 'Terminal enlarged' },
 ];
