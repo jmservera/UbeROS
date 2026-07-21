@@ -116,4 +116,4 @@ stored credentials and forces re-authentication.
 
 > **Note:** The primary ROS distribution (Kilted) is pending SPIKE-A image and
 > package verification. See [ADR-001](docs/decisions/ADR-001-ros-distro.md).
-> If verification fails, set `ROS_DISTRO=ionic` and `GZ_RELEASE=harmonic`.
+> If verification fails, set `ROS_DISTRO=jazzy` and `GZ_RELEASE=harmonic`.

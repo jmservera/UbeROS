@@ -25,7 +25,7 @@ falling back to **Jazzy Jalisco** is a one-line change with no other edits.
 
 - Longest support horizon if SPIKE-A passes.
 - If SPIKE-A P2/P4 fail, either install the missing packages from source or set
-  `ROS_DISTRO=ionic` and `GZ_RELEASE=harmonic`.
+  `ROS_DISTRO=jazzy` and `GZ_RELEASE=harmonic`.
 - SPIKE-A results must be recorded in this ADR before any image is relied upon.
 
 ## SPIKE-A results
@@ -37,7 +37,7 @@ Verified 2026-07-17 on Docker Desktop:
 - P2 `ros-kilted-rosapi` — FOUND 4.2.0-1resolute.20260606.
 - P3 Gazebo `ghcr.io/openrobotics/gazebo:ionic-full` — EXISTS (manifest).
 - P4 `ros-kilted-ros-gz` — FOUND 3.0.9-1resolute.20260617.
-- Fallbacks `ros:ionic-ros-base` and `gazebo:harmonic-full` — EXIST.
+- Fallbacks `ros:jazzy-ros-base` and `gazebo:harmonic-full` — EXIST.
 - P5 software rendering inside the Ionic image — not yet run (requires the
   multi-GB `ionic-full` pull); validated later during the WP-3 build.
 
