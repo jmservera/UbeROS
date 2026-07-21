@@ -1,8 +1,11 @@
 # Intel GPU acceleration overlay (opt-in, NATIVE Linux + Intel iGPU/dGPU).
 # Usage: docker compose -f compose.yaml -f compose.override.intel.yaml up
 #
-# Passes the host DRI render nodes (/dev/dri) into the simulator so Gazebo
-# renders through the Intel Mesa (iris) GL stack instead of software Mesa.
+# Passes the host DRI render nodes (/dev/dri) into the gazebo container so the
+# Gazebo server can use the Intel Mesa (iris) GL stack instead of software Mesa.
+# With the Theme F web-viz path Gazebo runs headless (`gz sim -s`) and the 3D
+# view is rendered CLIENT-SIDE by the browser, so this overlay now accelerates
+# server-side compute (e.g. GPU-eligible physics/sensor work), not the display.
 # This is the Intel counterpart to compose.override.gpu.yaml (NVIDIA); load
 # only ONE GPU overlay at a time.
 #
@@ -19,7 +22,7 @@
 #     with `getent group render video` and override via .env if they differ.
 
 services:
-  simulator:
+  gazebo:
     environment:
       # Disable software rendering so the Intel Mesa (iris) GL stack is used.
       LIBGL_ALWAYS_SOFTWARE: ""

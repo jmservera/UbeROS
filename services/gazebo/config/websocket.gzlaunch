@@ -1,0 +1,25 @@
+<?xml version='1.0'?>
+<!--
+  UbeROS Gazebo web-visualization launch file (PRD Theme F, FR-F1).
+
+  Starts the gz-launch WebsocketServer plugin, which bridges this container's
+  Gazebo Transport topics (scene graph, poses, meshes) to the browser as
+  protobuf frames over a WebSocket. The self-hosted gzweb client connects to it
+  through the proxy at /gzweb/ws/ (proxy_pass -> gazebo:9002) and renders the
+  scene client-side with Three.js. This is scene-state streaming, not pixels, so
+  the server stays headless (no GL context needed for the 3D world view).
+
+  Ionic pairing note: on Ionic the server is this gz-launch plugin. On Jetty the
+  same protocol/parameters move to the gz-sim system `gz-sim-websocket-server-
+  system` added to the world SDF; the gzweb client is unchanged.
+-->
+<gz version='1.0'>
+  <plugin name='gz::launch::WebsocketServer'
+          filename='gz-launch-websocket-server'>
+    <!-- Internal port; reached only via the proxy /gzweb/ws/ route. -->
+    <port>9002</port>
+    <!-- Throttle pose/state updates to keep bandwidth low (FR-F5). -->
+    <publication_hz>30</publication_hz>
+    <max_connections>10</max_connections>
+  </plugin>
+</gz>

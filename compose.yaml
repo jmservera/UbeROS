@@ -4,8 +4,8 @@
 # Service boundaries follow the research report (docs/specs/01-Init-research.md):
 #   discovery-server -> Fast DDS discovery (removes multicast dependency, RISK-4)
 #   ros              -> ROS 2 middleware + rosbridge (:9090) + ttyd (:7681)
-#   simulator        -> Gazebo + Xvfb (:99), software rendering by default
-#   vnc              -> x11vnc + noVNC sidecar sharing the simulator namespace
+#   gazebo           -> headless `gz sim -s` + WebsocketServer (:9002), scene-
+#                       state streamed to the browser gzweb client (Theme F, no VNC)
 #   editor           -> code-server (:8443) on the shared ROS workspace
 #   frontend         -> Svelte + Golden Layout SPA (:3000)
 #   proxy            -> Nginx single ingress (:${UBEROS_PORT})
@@ -29,7 +29,6 @@ volumes:
   # Server-side system settings store for the control service (Theme C). Keeps
   # config.json across restarts (FR-C2); the schema reserves a user key (FR-C4).
   control-data:
-  x11-socket:
 
 services:
   discovery-server:
@@ -80,60 +79,47 @@ services:
       retries: 10
       start_period: 30s
 
-  simulator:
+  # Gazebo simulator (PRD Theme F). Replaces the old `simulator` (Xvfb) + `vnc`
+  # (x11vnc/noVNC sidecar) pair with a single headless container: `gz sim -s`
+  # plus a gz-launch WebsocketServer (:9002) that streams the simulation as
+  # SCENE STATE (protobuf over WebSocket) to the browser gzweb client, which
+  # renders it client-side. No Xvfb, no VNC, no server GL — this removes the
+  # software-render/pixel-scrape bottleneck and targets < 300ms interaction
+  # (FR-F5). Under the `simulators` profile so it launches on demand (like
+  # turtlesim); the proxy therefore must not hard-depend on it, and /gzweb/ws/
+  # resolves gazebo lazily. On ros_net (DDS discovery, for the Theme E bridge)
+  # and web_net (proxy). No host-published ports (INV-04, WP-13).
+  gazebo:
     build:
-      context: ./services/simulator
+      context: ./services/gazebo
       args:
         GZ_RELEASE: ${GZ_RELEASE:-ionic}
         ROS_DISTRO: ${ROS_DISTRO:-kilted}
+    profiles: ["simulators"]
     depends_on:
       discovery-server:
         condition: service_healthy
     environment:
-      DISPLAY: ":99"
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-42}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
       ROS_DISCOVERY_SERVER: discovery-server:11811
-      LIBGL_ALWAYS_SOFTWARE: ${LIBGL_ALWAYS_SOFTWARE:-1}
-      MESA_GL_VERSION_OVERRIDE: ${MESA_GL_VERSION_OVERRIDE:-3.3}
-      MESA_GLSL_VERSION_OVERRIDE: ${MESA_GLSL_VERSION_OVERRIDE:-330}
     volumes:
       - ./simulation:/simulation:ro
       - gazebo-home:/root/.gz
-      # Publish the X11 socket so the vnc sidecar can attach to display :99
-      # (the sidecar shares only the network namespace, not the filesystem).
-      - x11-socket:/tmp/.X11-unix
     networks:
       - ros_net
       - web_net
     stop_grace_period: 60s
     restart: unless-stopped
+    # Verify the sim server is running AND the scene-state WebSocket accepts TCP
+    # connections on 9002. A UDP/GL probe is unnecessary — the web view needs no
+    # display. Uses bash /dev/tcp (no curl dependency in the Gazebo image).
     healthcheck:
-      test: ["CMD-SHELL", "pgrep Xvfb >/dev/null && pgrep -f 'gz sim' >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "pgrep -f 'gz sim' >/dev/null && bash -c 'echo > /dev/tcp/127.0.0.1/9002' 2>/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6
       start_period: 25s
-
-  vnc:
-    build:
-      context: ./services/vnc
-    # Share the simulator's network namespace so x11vnc can reach display :99
-    # without publishing VNC to any network (research R4).
-    network_mode: "service:simulator"
-    depends_on:
-      simulator:
-        condition: service_healthy
-    volumes:
-      # Read the simulator's X11 socket to attach x11vnc to display :99.
-      - x11-socket:/tmp/.X11-unix
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:6080/ >/dev/null || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
 
   # Turtlesim visualizer (PRD Theme C). A lightweight, ROS-native second
   # simulator: Xvfb + turtlesim_node + openbox + x11vnc + websockify in one
@@ -224,7 +210,7 @@ services:
       UBEROS_PROJECT: ${COMPOSE_PROJECT_NAME:-uberos}
       # Services the system menu is allowed to restart (BR-007). The control
       # plane itself, the proxy, and discovery-server are intentionally excluded.
-      UBEROS_SERVICES: ${UBEROS_SERVICES:-ros,simulator,vnc,editor,frontend}
+      UBEROS_SERVICES: ${UBEROS_SERVICES:-ros,gazebo,editor,frontend}
       # Surfaced to the SPA so it knows whether to show Logout (BR-008).
       UBEROS_AUTH: ${UBEROS_AUTH:-off}
       # Path to the persisted system settings store (Theme C, FR-C2). Lives on
@@ -250,8 +236,6 @@ services:
     depends_on:
       ros:
         condition: service_healthy
-      vnc:
-        condition: service_healthy
       editor:
         condition: service_healthy
       frontend:
@@ -263,6 +247,11 @@ services:
     volumes:
       - ./services/proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./config/nginx:/etc/nginx/auth:ro
+      # Self-hosted gzweb static client (Theme F, FR-F2), served by nginx at
+      # /gzweb/. Mounted here (not baked into the gazebo image) so the panel
+      # shell is ALWAYS available even when the on-demand gazebo container is
+      # down; only the /gzweb/ws/ upgrade returns 502 until gazebo is up.
+      - ./services/gazebo/client:/usr/share/nginx/gzweb:ro
     networks:
       - web_net
       - ros_net
