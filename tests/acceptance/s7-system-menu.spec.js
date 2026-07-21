@@ -1,8 +1,8 @@
 // S7 - The system menu recovers, hides/shows, and rearranges panels.
 // Covers BR-001 (reopen a closed panel), BR-003 (add a terminal), BR-005
 // (hide/show windows), and BR-006 (predefined layouts). Machine-testable via
-// the iframe panel count: simulator, terminal(s), and editor are iframes; the
-// ROS status panel is not.
+// the iframe panel count: terminal(s) and editor are iframes; the ROS status
+// panel is not. Simulators are opened on demand from the Simulators menu.
 import { test, expect } from '@playwright/test';
 
 const frames = (page) => page.locator('iframe.panel-frame');
@@ -15,12 +15,13 @@ test.describe('S7 - system menu manages the workspace', () => {
     await expect(frames(page).first()).toBeAttached({ timeout: 20_000 });
   });
 
-  test('menubar exposes Panels, Layouts, and Services', async ({ page }) => {
+  test('menubar exposes Panels, Layouts, Services, and Simulators', async ({ page }) => {
     const menubar = page.locator('.uberos-menubar');
     await expect(menubar).toBeVisible();
     await expect(page.getByRole('button', { name: /Panels/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Layouts/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Services/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Simulators/ })).toBeVisible();
   });
 
   test('closing then reopening a panel restores it (BR-001/BR-005)', async ({ page }) => {
@@ -46,10 +47,10 @@ test.describe('S7 - system menu manages the workspace', () => {
 
   test('a predefined layout can be applied (BR-006)', async ({ page }) => {
     await page.getByRole('button', { name: /Layouts/ }).click();
-    await page.getByRole('menuitem', { name: /Simulator enlarged/ }).click();
-    // The simulator iframe is still present after rearranging.
+    await page.getByRole('menuitem', { name: /Code editor enlarged/ }).click();
+    // The editor iframe is still present after rearranging to the preset.
     await expect(
-      page.locator('iframe.panel-frame[src*="novnc"]').first()
+      page.locator('iframe.panel-frame[src*="/editor/"]').first()
     ).toBeAttached();
   });
 });

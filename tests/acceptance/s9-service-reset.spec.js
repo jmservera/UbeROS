@@ -12,7 +12,7 @@ test.describe('S9 - per-service reset', () => {
     expect(Array.isArray(services)).toBe(true);
     const names = services.map((s) => s.name);
     // The allowlist excludes the control plane, proxy, and discovery server.
-    for (const svc of ['ros', 'simulator', 'vnc', 'editor', 'frontend']) {
+    for (const svc of ['ros', 'gazebo', 'editor', 'frontend']) {
       expect(names).toContain(svc);
     }
   });

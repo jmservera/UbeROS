@@ -41,7 +41,7 @@ a PR lands (or removes) the code that realizes an ADR, update that ADR's
 | [006](ADR-006-resilient-ingress.md) | Resilient Ingress & Health Visibility | Proposed | Not built; Theme G design gate |
 | [007](ADR-007-discovery-server.md) | DDS Discovery Server | Implemented | `discovery-server` + `dds_discovery.xml` (since Init) |
 | [008](ADR-008-control-plane.md) | Operational Control Plane & Docker Socket | Implemented | `services/control/server.js`; socket-proxy hardening pending (AE-S1) |
-| [009](ADR-009-display-transport.md) | Simulator Display Transport & GPU Rejection | Implemented | `services/simulator` + `services/vnc`; GPU rejected for interactive path; AE-P1 pending |
+| [009](ADR-009-display-transport.md) | Simulator Display Transport & GPU Rejection | Implemented | Gazebo via gzweb (`services/gazebo` WebsocketServer → `services/gzweb-client` Three.js client, `/gzweb/` + `/gzweb/ws/`); Turtlesim via noVNC (`services/turtlesim`, `/sim/turtlesim/novnc/`); GPU rejected for interactive path; retired `simulator`+`vnc` noVNC-for-Gazebo path |
 | [010](ADR-010-persistence.md) | Persistence & Volume Strategy | Partially implemented | editor volumes done; server-side config store (Theme C) done via `control` GET/PUT `/config/settings` → `control-data` volume; backup/restore (AE-R2) & migration (AE-O2) pending |
 
 ## Adding a new ADR

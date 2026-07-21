@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
 import { SERVICES, healthSnapshot } from '../helpers/stack.js';
 
 test.describe('S1 - stack starts without error', () => {
-  test('all seven services report healthy', () => {
+  test('all nine services report healthy', () => {
     const health = healthSnapshot();
     for (const svc of SERVICES) {
       expect(health[svc], `service "${svc}" should be present`).toBeDefined();

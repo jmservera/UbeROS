@@ -27,7 +27,6 @@ import { test, expect } from '@playwright/test';
 //  - ros-status:    a .panel-body element (non-iframe)
 // `title` is the Golden Layout tab title (.lm_title) used to find the stack.
 const PANELS = [
-  { key: 'simulator', title: 'Simulator', kind: 'iframe', match: 'novnc' },
   { key: 'terminal', title: 'Terminal', kind: 'iframe', match: '/terminal/' },
   { key: 'editor', title: 'Code Editor', kind: 'iframe', match: '/editor/' },
   { key: 'ros-status', title: 'ROS Status', kind: 'body', match: null },
@@ -50,12 +49,14 @@ function measurePanel(spec) {
   return { count: els.length, w: el.offsetWidth, h: el.offsetHeight };
 }
 
-// Wait until the default layout has fully rendered: all three iframe panels
-// plus the ROS Status body. Guards against popping out before GL is ready.
+// Wait until the default layout has fully rendered: both iframe panels (editor,
+// terminal) plus the ROS Status body. Simulators are no longer a built-in
+// panel (opened on demand from the Simulators menu), so the default layout
+// carries two iframes, not three. Guards against popping out before GL is ready.
 async function waitForAllPanels(page) {
   await page.waitForFunction(
     () =>
-      document.querySelectorAll('iframe.panel-frame').length >= 3 &&
+      document.querySelectorAll('iframe.panel-frame').length >= 2 &&
       document.querySelectorAll('.panel-body').length >= 1,
     undefined,
     { timeout: 30_000 }
