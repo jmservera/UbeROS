@@ -3,6 +3,14 @@
 - **Project:** uberos
 - **Created:** 2026-07-17
 
+## Learnings
+
+- 📌 Team update (2026-07-22T12:53:32.0690794+02:00): Session and orchestration notes were recorded for frontend dependency vulnerability remediation; outcome preserved as minimal safe devDependency updates, regenerated lockfile, clean frontend audit, and successful package-local build.
+# Project Context
+
+- **Project:** uberos
+- **Created:** 2026-07-17
+
 ## Core Context
 
 Agent Scribe initialized and ready for work.
