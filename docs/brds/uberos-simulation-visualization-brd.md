@@ -178,6 +178,14 @@ state requirements and are not yet implemented in the current stack.
   compute server-side with interaction lag under 300ms.
 - Each launched simulator is a first-class participant in the ROS 2 graph.
 
+Implementation staging note:
+
+- During Theme A (registry/API foundation), a simulator may be cataloged but
+  temporarily disabled in code until its runtime dependencies (compose service
+  and proxy route) are implemented.
+- For the current Theme A branch, this applies to `turtlesim`: it is listed in
+  the contract but intentionally disabled until Themes B/C land.
+
 ## 7. Business Requirements
 
 Requirement IDs use a theme prefix. Priority uses MoSCoW.

@@ -19,6 +19,11 @@ Current implementation note: this PRD is approved design for a next iteration.
 The current stack still runs the legacy `simulator` + `vnc` path with no runtime
 simulator launch API or `gzweb` route in production code.
 
+Theme A implementation staging note (branch `sim-theme-a-framework`): the
+simulator registry/menu scaffolding lands in Theme A, but `turtlesim` remains
+intentionally disabled (`enabled: false`) until its compose service and
+`/sim/turtlesim/novnc/` proxy route land in later themes (B/C).
+
 ## 1. Executive Summary
 ### Context
 UbeROS is a browser-based ROS 2 development environment: a Golden Layout v2 canvas of dockable

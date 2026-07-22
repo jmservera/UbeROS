@@ -8,6 +8,11 @@
 - FR-A3 — Frontend menu/panels data-driven from `GET /simulators` (extend `services/frontend/src/lib/panels.js` `PANEL_DEFS`).
 - FR-A4 — Each launched simulator joins the shared `ROS_DOMAIN_ID` via the discovery server (no multicast).
 
+## Current Theme A Implementation Note
+- Theme A ships the registry + read-only API + menu foundation.
+- `turtlesim` is intentionally present in the catalog but `enabled: false` in this branch, because its compose service and `/sim/turtlesim/novnc/` proxy route are not implemented yet.
+- Downstream PRs can enable it by landing the service + route, then switching `enabled` to `true`.
+
 ## Dependency / lane
 - **Lane 1 (foundation) — keystone.** No upstream deps. Themes B, C-menu, F-menu, and D consume this registry/API.
 
