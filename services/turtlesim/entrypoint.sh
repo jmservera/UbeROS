@@ -55,7 +55,7 @@ x11vnc \
   -rfbport 5900 \
   -forever \
   -shared \
-  -bg
+  >/tmp/x11vnc.log 2>&1 &
 
 # Forward termination to the turtlesim node for a clean shutdown.
 # websockify runs in the background so the trap survives (exec would replace
