@@ -1,5 +1,5 @@
 // Use ESM named imports from roslib v2.x instead of the legacy browser bundle.
-// This relies on roslib v2.1.0 which publishes an ESM build with named exports.
+// roslib v2.x publishes an ESM build with named exports (e.g., Ros, Topic).
 import { Ros } from 'roslib';
 
 // Single shared rosbridge connection with exponential-backoff reconnect.
