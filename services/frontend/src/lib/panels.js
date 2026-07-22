@@ -1,4 +1,5 @@
-import ROSLIB from 'roslib';
+// Use ESM named import for Topic from roslib v2.x instead of the legacy bundle.
+import { Topic } from 'roslib';
 import { onRosStatus, startRos } from './ros.js';
 
 // Panel content builders for the Golden Layout window manager.
@@ -95,7 +96,7 @@ export function buildSimulatorPanel(el) {
 // code — adding a registry entry is enough to render its panel (NFR-MAINT-1).
 const SIMULATOR_TRANSPORTS = {
   vnc: (route) =>
-    `${ensureTrailingSlash(route)}vnc.html?autoconnect=true&resize=scale&path=${noVncWebsockifyPath(route)}`,
+    `${ensureTrailingSlash(route)}vnc.html?autoconnect=true&resize=scale&path=${encodeURIComponent(noVncWebsockifyPath(route))}`,
   gzweb: (route) => route,
 };
 
@@ -211,7 +212,7 @@ export function buildRosStatusPanel(el) {
         }
       );
 
-      const rosout = new ROSLIB.Topic({
+      const rosout = new Topic({
         ros,
         name: '/rosout',
         messageType: 'rcl_interfaces/msg/Log',
