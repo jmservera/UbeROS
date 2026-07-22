@@ -104,3 +104,5 @@
   **Takeaway:** `beforeunload`-based auto-dock is unreliable in Chrome for passive
   windows; prefer GL's user-clicked native pop-in button. Diagnostic beacons via nginx
   logs were how the root cause was proven.
+
+- 📌 Team update (2026-07-22T12:53:32.0690794+02:00): Frontend dependency vulnerability remediation completed in `services/frontend` using the smallest safe devDependency updates with regenerated lockfile; validation recorded as `npm audit` 0 vulnerabilities and successful package-local build.

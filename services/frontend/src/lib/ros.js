@@ -1,4 +1,6 @@
-import ROSLIB from 'roslib';
+// Use ESM named imports from roslib v2.x instead of the legacy browser bundle.
+// This relies on roslib v2.1.0 which publishes an ESM build with named exports.
+import { Ros } from 'roslib';
 
 // Single shared rosbridge connection with exponential-backoff reconnect.
 // roslibjs does not reconnect automatically (research: roslibjs), so we schedule
@@ -31,7 +33,7 @@ function connect() {
   status = 'connecting';
   emit();
 
-  ros = new ROSLIB.Ros({ url: rosbridgeUrl() });
+  ros = new Ros({ url: rosbridgeUrl() });
 
   ros.on('connection', () => {
     attempt = 0;

@@ -1,4 +1,5 @@
-import ROSLIB from 'roslib';
+// Use ESM named import for Topic from roslib v2.x instead of the legacy bundle.
+import { Topic } from 'roslib';
 import { onRosStatus, startRos } from './ros.js';
 
 // Panel content builders for the Golden Layout window manager.
@@ -211,7 +212,7 @@ export function buildRosStatusPanel(el) {
         }
       );
 
-      const rosout = new ROSLIB.Topic({
+      const rosout = new Topic({
         ros,
         name: '/rosout',
         messageType: 'rcl_interfaces/msg/Log',

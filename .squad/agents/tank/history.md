@@ -1,5 +1,13 @@
 # Project Context
 
+- **Project:** uberos
+- **Created:** 2026-07-17
+
+## Learnings
+
+- 📌 Team update (2026-07-22T12:53:32.0690794+02:00): For frontend dependency remediation in `services/frontend`, package-local build is the narrowest useful validation after lockfile regeneration; broader smoke and acceptance coverage can be deferred unless dependency changes affect runtime behavior.
+# Project Context
+
 - **Owner:** jmservera
 - **Project:** Browser-accessible ROS and simulator environment on Docker Compose
 - **Stack:** ROS, Gazebo, Docker Compose, noVNC, browser-based VS Code, web terminals, Nginx or Traefik, web frontend
