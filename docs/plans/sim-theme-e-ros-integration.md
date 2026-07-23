@@ -4,7 +4,7 @@
 
 ## Scope — FR-E1 … FR-E6
 - FR-E1 — `ros_gz_bridge` runs co-located with `gz sim` in the Gazebo container.
-- FR-E2 — Default bridge for `/clock` (`rosgraph_msgs/Clock`) via a bridge config file; further per-world bridges additive.
+- FR-E2 — Default bridge for `/clock` (`rosgraph_msgs/msg/Clock`) via a bridge config file; further per-world bridges additive.
 - FR-E3 — Bridge reaches ROS via the Fast DDS discovery server (unicast, no multicast); gz-transport stays intra-container.
 - FR-E4 — Gazebo entrypoint sources `/opt/ros/${ROS_DISTRO}` and provides the DDS discovery config.
 - FR-E5 — `ROS_DISTRO` ↔ `GZ_RELEASE` pinned to a compatible pair (kilted ↔ ionic).
@@ -22,7 +22,7 @@
 - [ ] Research: ros_gz_bridge config format for the pinned pair; discovery-server env vs XML in the Gazebo container
 - [ ] Plan: bridge launch + `/clock` config + entrypoint ROS sourcing
 - [ ] Implement: co-located bridge, `/clock`, ros-image cleanup
-- [ ] Tests: `ros2 topic list` shows `/clock`; no multicast
+- [ ] Tests: `ros2 topic echo /clock rosgraph_msgs/msg/Clock --once` returns a clock sample; no multicast
 - [ ] Acceptance (PRD §7.5)
 
 ## Verified test procedure (2026-07-24)
