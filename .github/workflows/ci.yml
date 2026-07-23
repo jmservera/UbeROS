@@ -36,12 +36,12 @@ jobs:
       - name: Lint shell scripts (shellcheck)
         run: |
           command -v shellcheck >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y shellcheck)
-          shellcheck --severity=warning \
-            services/ros/uberos-term.sh \
-            services/ros/entrypoint.sh \
-            services/vnc/entrypoint.sh \
-            services/simulator/entrypoint.sh \
-            tests/smoke.sh
+          mapfile -t shell_scripts < <(find services tests -type f -name '*.sh' | sort)
+          if [ "${#shell_scripts[@]}" -eq 0 ]; then
+            echo "::warning::No shell scripts found under services/ or tests/"
+            exit 0
+          fi
+          shellcheck --severity=warning "${shell_scripts[@]}"
 
       - name: Set up Node.js for linting
         uses: actions/setup-node@v4

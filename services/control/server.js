@@ -36,7 +36,7 @@ const AUTH = (process.env.UBEROS_AUTH || 'off').toLowerCase();
 // Allowlist of compose services the menu may reset. Anything not in this set is
 // rejected outright — the control plane can never touch itself, the proxy, or
 // the discovery server.
-const ALLOWED_SERVICES = (process.env.UBEROS_SERVICES || 'ros,simulator,vnc,editor,frontend')
+const ALLOWED_SERVICES = (process.env.UBEROS_SERVICES || 'ros,gazebo,turtlesim,editor,frontend')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);

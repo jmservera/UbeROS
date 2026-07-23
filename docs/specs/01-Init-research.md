@@ -1683,7 +1683,7 @@ The spec criteria need the following sharpenings for automation.[^test-audit]
 
 [^gz-eol]: Gazebo version and EOL table: <https://raw.githubusercontent.com/gazebosim/docs/master/tools/versions.md>, fetched 2026-07-17. It records Gazebo Classic 11 EOL on 2025-01-25, Gazebo Ionic (`gz-sim10`) stable through 2031-05, and Gazebo Harmonic (`gz-sim8`) stable through 2029-05.
 
-[^ros-eol]: ROS 2 lifecycle schedule: <https://endoflife.date/ros-2>, last updated 2026-06-01 and accessed 2026-07-17. It records Iron EOL in November 2024, Humble in May 2027, Jazzy in May 2029, Kilted in November 2026, and Lyrical ending in approximately May 2031. REP-2000 had no Lyrical section at the research date.
+[^ros-eol]: ROS 2 lifecycle schedule: <https://endoflife.date/ros-2>, last updated 2026-06-01 and accessed 2026-07-17. It records Iron EOL in November 2024, Humble in May 2027, Jazzy in May 2029, Kilted in November 2026, and Kilted ending in approximately May 2031.
 
 [^rep2000]: REP-2000 live review on 2026-07-17: <https://www.ros.org/reps/rep-2000.html>. The page covered Humble, Iron, Jazzy, Kilted, and Rolling, then ended after Rolling Ridley. It must not be cited as authority for Kilted’s platform tier or LTS status.
 

@@ -10,8 +10,8 @@ export const REPO_ROOT = resolve(__dirname, '..', '..');
 export const SERVICES = [
   'discovery-server',
   'ros',
-  'simulator',
-  'vnc',
+  'gazebo',
+  'turtlesim',
   'editor',
   'frontend',
   'proxy',

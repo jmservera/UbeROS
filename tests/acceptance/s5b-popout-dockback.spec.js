@@ -27,7 +27,7 @@ import { test, expect } from '@playwright/test';
 //  - ros-status:    a .panel-body element (non-iframe)
 // `title` is the Golden Layout tab title (.lm_title) used to find the stack.
 const PANELS = [
-  { key: 'simulator', title: 'Simulator', kind: 'iframe', match: 'novnc' },
+  { key: 'simulator', title: 'Simulator', kind: 'iframe', match: '/gzweb/' },
   { key: 'terminal', title: 'Terminal', kind: 'iframe', match: '/terminal/' },
   { key: 'editor', title: 'Code Editor', kind: 'iframe', match: '/editor/' },
   { key: 'ros-status', title: 'ROS Status', kind: 'body', match: null },

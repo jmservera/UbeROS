@@ -54,7 +54,11 @@ export const PANEL_DEFS = {
   simulator: {
     componentType: 'simulator',
     title: 'Simulator',
-    url: '/novnc/vnc.html?autoconnect=true&resize=scale&path=novnc/websockify',
+    // Gazebo now streams SCENE STATE to the self-hosted gzweb client (Theme F);
+    // the retired noVNC pixel stream is gone. The client connects to the
+    // WebsocketServer through the proxy at /gzweb/ws/ (see the gazebo registry
+    // entry's panelRoute + transport `gzweb`).
+    url: '/gzweb/',
     popout: true,
     singleton: true,
   },
@@ -84,7 +88,8 @@ export const PANEL_DEFS = {
 };
 
 export function buildSimulatorPanel(el) {
-  // noVNC served under /novnc/, bridging to websockify.
+  // gzweb scene-state client served under /gzweb/ (Theme F). Same-origin iframe
+  // through the single proxy; the client opens the /gzweb/ws/ WebSocket itself.
   el.appendChild(makeIframe(PANEL_DEFS.simulator.url));
 }
 

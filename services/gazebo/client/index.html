@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UbeROS — Gazebo (gzweb)</title>
+    <style>
+      /* Fills the Golden Layout iframe panel (FR-F3); dark to match the SPA. */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #1e1e1e;
+        color: #d4d4d4;
+        font: 13px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+      #app {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        background: #252526;
+        border-bottom: 1px solid #333;
+      }
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #c0a000;
+        flex: none;
+      }
+      .dot.ok {
+        background: #2ea043;
+      }
+      .dot.err {
+        background: #d13438;
+      }
+      header strong {
+        color: #fff;
+      }
+      header .meta {
+        margin-left: auto;
+        color: #9a9a9a;
+        font-variant-numeric: tabular-nums;
+      }
+      #scene {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 16px;
+        color: #8a8a8a;
+      }
+      #frames {
+        height: 30%;
+        min-height: 90px;
+        overflow: auto;
+        margin: 0;
+        padding: 8px 10px;
+        background: #151515;
+        border-top: 1px solid #333;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      code {
+        color: #4ec9b0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <span id="dot" class="dot" aria-hidden="true"></span>
+        <strong>Gazebo</strong>
+        <span id="state">connecting…</span>
+        <span class="meta"><span id="rate">0</span> msg/s · <span id="count">0</span> total</span>
+      </header>
+      <div id="scene">
+        <div>
+          <p><strong>Scene-state stream status: <span id="stream-status">connecting…</span></strong></p>
+          <p>
+            This is the minimal UbeROS gzweb client: it establishes the
+            WebsocketServer connection through the proxy (<code>/gzweb/ws/</code>)
+            and confirms whether live scene-state frames are flowing. This PR
+            covers transport validation and panel integration; full Three.js 3D
+            rendering remains tracked follow-up work (see services/gazebo/client/app.js).
+          </p>
+        </div>
+      </div>
+      <pre id="frames"></pre>
+    </div>
+    <!-- Config first so app.js can read window.GZWEB_WS_URL / GZWEB_WORLD. -->
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

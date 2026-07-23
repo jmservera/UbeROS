@@ -1,6 +1,14 @@
-# ADR-004: Frontend Framework and Window Manager
+---
+title: ADR-004 Frontend Framework and Window Manager
+description: Decision record for selecting Svelte and Golden Layout v2 for the UbeROS frontend.
+author: jmservera
+ms.date: 2026-07-23
+ms.topic: concept
+---
 
-- Status: Accepted — Implemented (low confidence on framework; window manager firm)
+## ADR-004: Frontend Framework and Window Manager
+
+- Status: Accepted, implemented (low confidence on framework; window manager firm)
 - Implementation: `services/frontend` Svelte + `golden-layout` 2.6.0
 - Date: 2026-07-17
 - Deciders: jmservera (product), Switch (technical)

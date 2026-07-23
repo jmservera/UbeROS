@@ -1,0 +1,11 @@
+# Gazebo Fuel configuration for UbeROS (PRD Theme F).
+# Automatic online model downloads are disabled: the default world uses only
+# built-in Gazebo primitive shapes (Apache 2.0), which avoids Fuel model
+# licensing review (research: fuel-license, OOS-05). Disabling Fuel also keeps
+# initial scene load fast, since the gzweb client fetches assets via the
+# WebsocketServer `asset` op rather than round-tripping to Fuel.
+#
+# The cache directory persists in the gazebo-home named volume. To add custom
+# models later, add entries here after a licensing audit.
+---
+servers: []

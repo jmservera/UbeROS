@@ -1,7 +1,8 @@
 name: CI — Integration & Acceptance
 # UbeROS project CI — heavyweight live integration gate. Builds the images,
 # starts the full Docker Compose stack, waits for healthy services, runs smoke
-# tests + the ROS graph check, and executes Playwright acceptance tests (S1+S2).
+# tests + the ROS graph check, and executes the CI-enabled Playwright
+# acceptance slice.
 #
 # Unlike ci.yml (lint + build, runs for ANY PR), this workflow ONLY runs on the
 # protected/preview branches — PRs targeting dev/preview/main/insider and pushes
@@ -58,7 +59,7 @@ jobs:
           docker compose exec -T ros bash -lc
           "source /opt/ros/\$ROS_DISTRO/setup.bash && ros2 node list"
 
-      # ── Playwright acceptance tests (S1–S2) ──────────────────────────
+      # ── Playwright acceptance tests (core + expanded integration slice) ──
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -68,20 +69,28 @@ jobs:
         working-directory: tests
         run: npm ci
 
-      - name: Install Playwright browsers
+      - name: Install Playwright browsers and Linux deps
         working-directory: tests
         run: npx playwright install --with-deps chromium
 
-      - name: Run acceptance tests (S1 + S2)
+      - name: Run acceptance tests (S1 + S2 + S3 + S4 + S5 + S5b + S7 + S9)
         working-directory: tests
         run: >
-          npx playwright test
+          npm test --
+          --grep-invert "ROS Status: pop out -> click pop-in button -> docks back visibly"
           acceptance/s1-stack-health.spec.js
           acceptance/s2-window-manager.spec.js
+          acceptance/s3-terminal-ros.spec.js
+          acceptance/s4-novnc-frame.spec.js
+          acceptance/s5-popout-isolation.spec.js
+          acceptance/s5b-popout-dockback.spec.js
+          acceptance/s7-system-menu.spec.js
+          acceptance/s9-service-reset.spec.js
 
-      # S3–S9 are integration-heavy (terminal I/O, VNC pixel analysis, service
-      # restarts). They run locally but are not yet enabled in CI. To add them
-      # later, append more spec paths to the command above.
+      # Remaining browser-only coverage stays out of CI for now:
+      # S6 exercises editor file persistence and S8 covers auth toggle modes.
+      # The ROS Status pop-in subcase in S5b is temporarily excluded due to
+      # teardown flakiness on long CI runs; other S5b panel cases still run.
 
       - name: Upload Playwright report
         if: failure()

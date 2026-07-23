@@ -6,7 +6,7 @@
 # macOS Docker Desktop has no GPU passthrough (research: gpu-macos).
 
 services:
-  simulator:
+  gazebo:
     environment:
       # Disable software rendering so the NVIDIA GL stack is used.
       LIBGL_ALWAYS_SOFTWARE: ""

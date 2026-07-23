@@ -26,11 +26,26 @@ test.describe('S7 - system menu manages the workspace', () => {
 
   test('simulators menu loads entries or a clear empty-state', async ({ page }) => {
     const loading = page.getByText(/Loading simulators…/);
-    await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/control/simulators') && r.status() === 200),
-      page.getByRole('button', { name: /Simulators/ }).click(),
-    ]);
-    await expect(loading).toBeHidden({ timeout: 15_000 });
+    await page.getByRole('button', { name: /Simulators/ }).click();
+
+    // In longer CI runs the simulators request can complete before this test
+    // starts waiting for a response event. Wait on rendered menu state instead.
+    await expect
+      .poll(async () => {
+        if (await loading.isVisible().catch(() => false)) return 'loading';
+        if ((await page.locator('.menu-group .menu-service').count()) > 0) return 'rows';
+        if (
+          await page
+            .getByText(/No simulators installed in this build\./)
+            .isVisible()
+            .catch(() => false)
+        ) {
+          return 'empty';
+        }
+        return 'pending';
+      }, { timeout: 20_000 })
+      .toMatch(/rows|empty/);
+
     const simRows = page.locator('.menu-group .menu-service');
     const count = await simRows.count();
     if (count > 0) {
@@ -66,7 +81,7 @@ test.describe('S7 - system menu manages the workspace', () => {
     await page.getByRole('menuitem', { name: /Simulator enlarged/ }).click();
     // The simulator iframe is still present after rearranging.
     await expect(
-      page.locator('iframe.panel-frame[src*="novnc"]').first()
+      page.locator('iframe.panel-frame[src*="/gzweb/"]').first()
     ).toBeAttached();
   });
 });

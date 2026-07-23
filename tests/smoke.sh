@@ -37,7 +37,8 @@ check() {
 echo "== proxy routing =="
 check /healthz 200
 check / 200
-check /novnc/vnc.html 200
+check /gzweb/ 200
+check /sim/turtlesim/novnc/ 200
 check /terminal/ 200
 check /editor/ 200 302
 
