@@ -18,12 +18,7 @@ ENV ROS_DISTRO=${ROS_DISTRO}
 
 # turtlesim + the VNC toolchain (Xvfb framebuffer, openbox window manager,
 # x11vnc export, novnc/websockify browser bridge). x11-utils provides xdpyinfo
-<<<<<<< HEAD
-# for the framebuffer readiness probe; procps provides pgrep for the health
-# check; curl is used by the container health check.
-=======
 # for the framebuffer readiness probe; curl is used by the container health check.
->>>>>>> origin/main
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ros-${ROS_DISTRO}-turtlesim \
@@ -33,10 +28,6 @@ RUN apt-get update \
         x11vnc \
         novnc \
         websockify \
-<<<<<<< HEAD
-        procps \
-=======
->>>>>>> origin/main
         curl \
     && rm -rf /var/lib/apt/lists/*
 
