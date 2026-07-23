@@ -85,10 +85,11 @@ services:
   # SCENE STATE (protobuf over WebSocket) to the browser gzweb client, which
   # renders it client-side. No Xvfb, no VNC, no server GL — this removes the
   # software-render/pixel-scrape bottleneck and targets < 300ms interaction
-  # (FR-F5). Under the `simulators` profile so it launches on demand (like
-  # turtlesim); the proxy therefore must not hard-depend on it, and /gzweb/ws/
-  # resolves gazebo lazily. On ros_net (DDS discovery, for the Theme E bridge)
-  # and web_net (proxy). No host-published ports (INV-04, WP-13).
+  # (FR-F5). Gazebo is part of the default stack. The proxy still uses lazy
+  # DNS for /gzweb/ws/ so
+  # startup remains resilient if gazebo is temporarily unavailable (for example,
+  # during restarts). On ros_net (DDS discovery, for the Theme E bridge) and
+  # web_net (proxy). No host-published ports (INV-04, WP-13).
   gazebo:
     build:
       context: ./services/gazebo
@@ -127,15 +128,13 @@ services:
   # Turtlesim visualizer (PRD Theme C). A lightweight, ROS-native second
   # simulator: Xvfb + turtlesim_node + openbox + x11vnc + websockify in one
   # container, streamed to the browser over noVNC at /sim/turtlesim/novnc/.
-  # Under the `simulators` profile so it is defined but launched on demand (the
-  # full build-selection matrix + auto-start is Theme D). On ros_net for the DDS
+  # Enabled in the default stack alongside Gazebo. On ros_net for the DDS
   # discovery server and web_net for the proxy. No host-published ports.
   turtlesim:
     build:
       context: ./services/turtlesim
       args:
         ROS_DISTRO: ${ROS_DISTRO:-kilted}
-    profiles: ["simulators"]
     depends_on:
       discovery-server:
         condition: service_healthy

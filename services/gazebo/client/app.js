@@ -38,6 +38,7 @@
 
   var dot = document.getElementById('dot');
   var stateEl = document.getElementById('state');
+  var streamStatusEl = document.getElementById('stream-status');
   var rateEl = document.getElementById('rate');
   var countEl = document.getElementById('count');
   var framesEl = document.getElementById('frames');
@@ -50,6 +51,7 @@
 
   function setState(text, cls) {
     stateEl.textContent = text;
+    if (streamStatusEl) streamStatusEl.textContent = text;
     dot.className = 'dot' + (cls ? ' ' + cls : '');
   }
 

@@ -21,9 +21,7 @@ ARG ROS_DISTRO
 ENV ROS_DISTRO=${ROS_DISTRO}
 
 # procps provides pgrep for the health check. The gz-launch websocket server
-# plugin is already present in the `-full` image; installed defensively in case
-# a slimmer base is pinned later (the package is a no-op if already satisfied).
-# curl/gnupg2/ca-certificates are needed to add the ROS apt repo below.
+# plugin is expected to be present in the `-full` image used by this service.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         procps \

@@ -86,11 +86,11 @@
       </header>
       <div id="scene">
         <div>
-          <p><strong>Scene-state stream connected.</strong></p>
+          <p><strong>Scene-state stream status: <span id="stream-status">connecting…</span></strong></p>
           <p>
             This is the minimal UbeROS gzweb client: it establishes the
             WebsocketServer connection through the proxy (<code>/gzweb/ws/</code>)
-            and confirms live scene-state frames are flowing. Full Three.js 3D
+            and confirms whether live scene-state frames are flowing. Full Three.js 3D
             rendering is a documented follow-up (see services/gazebo/client/app.js).
           </p>
         </div>

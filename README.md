@@ -15,7 +15,7 @@ docker compose up
 ```
 
 Then open <http://localhost:8080>. The window-manager canvas loads with four
-panels: Simulator (noVNC), Terminal, Code Editor, and ROS Status.
+panels: Simulator (gzweb), Terminal, Code Editor, and ROS Status.
 
 To run detached:
 
@@ -39,8 +39,8 @@ docker compose down
 | `proxy` | Single ingress (Nginx); the only host-published port | 8080 |
 | `frontend` | Svelte + Golden Layout window manager | 3000 |
 | `ros` | ROS 2 middleware, rosbridge, ttyd terminals, colcon | 9090, 7681 |
-| `simulator` | Gazebo + Xvfb (software rendering by default) | 5900, 6080 |
-| `vnc` | x11vnc + noVNC sidecar (shares the simulator namespace) | 5900, 6080 |
+| `gazebo` | Headless Gazebo (`gz sim -s`) + WebSocket scene-state stream | 9002 |
+| `turtlesim` | Xvfb + turtlesim + noVNC stream | 6080 |
 | `editor` | code-server on the shared ROS workspace | 8443 |
 | `control` | Operational control plane (per-service reset, workspace config) | 9000 |
 | `discovery-server` | Fast DDS discovery (removes multicast dependency) | 11811 |
@@ -59,7 +59,7 @@ Settings live in `.env` (committed defaults contain no secrets):
 | `UBEROS_PORT` | `8080` | Host port for the proxy |
 | `ROS_DOMAIN_ID` | `42` | DDS domain (cross-platform-safe range) |
 | `UBEROS_AUTH` | `off` | Set to `basic` to enable proxy authentication |
-| `UBEROS_SERVICES` | `ros,simulator,vnc,editor,frontend` | Services the system menu may reset |
+| `UBEROS_SERVICES` | `ros,gazebo,turtlesim,editor,frontend` | Services the system menu may reset |
 
 ### GPU acceleration (opt-in)
 

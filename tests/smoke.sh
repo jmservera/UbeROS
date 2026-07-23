@@ -38,8 +38,7 @@ echo "== proxy routing =="
 check /healthz 200
 check / 200
 check /gzweb/ 200
-# Turtlesim noVNC is profile-gated: 200 when running, 502 when profile is off.
-check /sim/turtlesim/novnc/ 200 502
+check /sim/turtlesim/novnc/ 200
 check /terminal/ 200
 check /editor/ 200 302
 

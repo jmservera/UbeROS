@@ -8,7 +8,7 @@ test.describe('S4 - simulator panel stream', () => {
   test('gzweb client connects and receives scene-state frames', async ({ page }) => {
     await page.goto('/gzweb/');
 
-    await expect(page.getByText('Scene-state stream connected.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#stream-status')).toHaveText(/connected/i, { timeout: 30_000 });
     await expect(page.locator('#state')).toHaveText(/connected/i, { timeout: 30_000 });
 
     await expect
