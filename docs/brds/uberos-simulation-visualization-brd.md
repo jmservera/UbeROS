@@ -2,11 +2,11 @@
 title: UbeROS Simulation and Visualization BRD
 description: Business requirements for a pluggable, build-configurable simulator/visualizer framework with a runtime launch menu, Turtlesim as a second visualizer, full ROS 2 integration for simulators, and moving Gazebo from VNC to native web visualization.
 author: jmservera
-ms.date: 07/21/2026
+ms.date: 2026-07-23
 ms.topic: concept
 ---
 
-# UbeROS Simulation and Visualization BRD
+## UbeROS Simulation and Visualization BRD
 
 Version 0.2.0 | Status Draft | Owner jmservera | Related [Workspace Enhancements BRD](./uberos-workspace-enhancements-brd.md) · [Workspace Management BRD](./uberos-workspace-management-brd.md) · [uberos-init PRD](../prds/uberos-init.md)
 
@@ -24,24 +24,18 @@ Version 0.2.0 | Status Draft | Owner jmservera | Related [Workspace Enhancements
 ## 1. Business Context and Background
 
 UbeROS delivers a browser-based ROS development environment through a Golden Layout canvas of
-dockable panels (Simulator/noVNC, Terminal, Code Editor, ROS Status) behind a single Nginx
-proxy. Today the only simulator is Gazebo: the `simulator` service starts an Xvfb framebuffer on
-display `:99` and launches `gz sim`, and a `vnc` sidecar (x11vnc + noVNC) shares the simulator's
-network namespace to stream that display to the browser
-([services/simulator/entrypoint.sh](../../services/simulator/entrypoint.sh),
-[compose.yaml](../../compose.yaml)).
+dockable panels (Simulator, Terminal, Code Editor, ROS Status) behind a single Nginx proxy.
+The current stack includes two simulator services in compose defaults: `gazebo` (native `gzweb`
+scene-state transport) and `turtlesim` (noVNC transport)
+([compose.yaml](../../compose.yaml),
+[services/proxy/nginx.conf](../../services/proxy/nginx.conf)).
 
 Two facts from the current codebase shape this BRD:
 
-- **Simulation is single, static, and not launch-selectable.** Gazebo is the only visualizer, it
-  is baked into a dedicated service, and there is no way to add another simulator (for example
-  Turtlesim) or to choose which simulator to run without rebuilding a different stack.
-- **Gazebo is streamed, not integrated.** The simulator is presented as a pixel stream over VNC,
-  and the Gazebo world is not bridged into ROS 2 as first-class nodes/topics — so the simulator
-  is a viewer rather than a participant in the ROS graph. The related
-  [Workspace Enhancements BRD](./uberos-workspace-enhancements-brd.md) Theme E already documents
-  that this VNC path falls back to software (llvmpipe) rendering on WSL2 Intel GPUs, making it
-  slow.
+- **Simulation transport is now split by simulator type.** Gazebo uses `gzweb` and Turtlesim uses
+  noVNC, each on dedicated proxy routes.
+- **Runtime lifecycle controls remain partially delivered.** Simulator registry/state discovery is
+  present, but explicit launch and stop APIs for per-simulator runtime control are still pending.
 
 This BRD captures the business need for a **pluggable, build-configurable simulator/visualizer
 framework** with a **runtime launch menu**, adds **Turtlesim** as a second visualizer, requires
@@ -126,13 +120,13 @@ simulator from participating in ROS workflows.
 
 ### Out of Scope
 
-- Removing the VNC/noVNC path entirely — it is retained for Turtlesim and any other GUI-window
+- Removing the VNC/noVNC path entirely: it is retained for Turtlesim and any other GUI-window
   simulator; only **Gazebo** moves off VNC.
 - Building a full multi-user simulation model (concurrent isolated simulator instances per user);
   the framework must not preclude it but does not deliver it here.
 - Replacing Golden Layout, the single-reverse-proxy topology, or the ROS middleware/discovery
   design.
-- Solving the WSL2 Intel GPU rendering blocker itself — that remains the
+- Solving the WSL2 Intel GPU rendering blocker itself: that remains the
   [Workspace Enhancements BRD](./uberos-workspace-enhancements-brd.md) Theme E spike; this BRD's
   web-visualization move is a complementary path that shifts rendering to the browser.
 
@@ -178,13 +172,13 @@ state requirements and are not yet implemented in the current stack.
   compute server-side with interaction lag under 300ms.
 - Each launched simulator is a first-class participant in the ROS 2 graph.
 
-Implementation staging note:
+Historical staging note:
 
-- During Theme A (registry/API foundation), a simulator may be cataloged but
-  temporarily disabled in code until its runtime dependencies (compose service
-  and proxy route) are implemented.
-- For the current Theme A branch, this applies to `turtlesim`: it is listed in
-  the contract but intentionally disabled until Themes B/C land.
+- Early Theme A branch work staged simulator registration before full runtime
+  wiring.
+- That staging ambiguity has been resolved in the default stack: both `gazebo`
+  and `turtlesim` are active services, with Gazebo on `gzweb` and Turtlesim on
+  noVNC.
 
 ## 7. Business Requirements
 

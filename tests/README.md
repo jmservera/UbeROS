@@ -1,5 +1,13 @@
+---
+title: UbeROS Acceptance Tests (WP-15)
+description: Acceptance and smoke test guidance for validating UbeROS stack health, simulator transport, and workspace behaviors.
+author: UbeROS Team
+ms.date: 2026-07-23
+ms.topic: how-to
+---
+
 <!-- markdownlint-disable-file -->
-# UbeROS Acceptance Tests (WP-15)
+## UbeROS Acceptance Tests (WP-15)
 
 Machine-verification of the six Initial Success Criteria (S1–S6) from
 [`docs/specs/01-Init.md`](../docs/specs/01-Init.md) and the workspace-management
@@ -41,6 +49,12 @@ npm run report         # open the HTML report
 
 Override the ingress with `UBEROS_PORT` or `UBEROS_BASE_URL` if you changed the
 proxy port.
+
+CI acceptance slice rationale:
+
+* CI runs a stable slice that prioritizes stack health and core simulator-path checks while ongoing popout work settles
+* Temporary exclusion note: `acceptance/s5b-popout-dockback.spec.js` is excluded in CI for now due to known flakiness under headless timing variance
+* Local and targeted validation can still run S5 and S5b directly when investigating popout regressions
 
 ## Criteria mapping
 

@@ -1,29 +1,49 @@
-# Theme F — Gazebo native web visualization (gzweb)
+---
+title: Theme F Gazebo Native Web Visualization (gzweb)
+description: Implementation-synchronized status record for Theme F transport migration from Gazebo noVNC to gzweb scene-state streaming.
+author: UbeROS Team
+ms.date: 2026-07-23
+ms.topic: reference
+---
 
-> Plan stub. Source of truth: [Simulation & Visualization PRD](../prds/uberos-simulation-visualization.md) §7.6. Highest risk (R-1). Spike: `.copilot-tracking/research/2026-07-21/gzweb-web-visualization-feasibility-research.md`.
+## Theme F Gazebo Native Web Visualization (gzweb)
 
-## Scope — FR-F1 … FR-F5
-- FR-F1 — Gazebo container runs headless `gz sim -s` + a WebSocket server (Ionic: `gz-launch` `WebsocketServer` plugin; Jetty: `gz-sim` `WebsocketServer` system). No Xvfb/VNC, no server GL context.
-- FR-F2 — Self-hosted **minimal** `gzweb` client (static, config-injected WS URL) + websocket behind the proxy (`/gzweb/` static + `/gzweb/ws/` → `:9002`).
-- FR-F3 — Gazebo panel loads the gzweb client; docks/pops-out/collapses like other panels.
-- FR-F4 — Remove the VNC path for Gazebo (retire the old `simulator` + `vnc` sidecar Gazebo pipeline); VNC retained only for Turtlesim.
-- FR-F5 — Interaction lag < 300ms; scene-state streamed (not pixels), compute server-side.
+Implementation-synchronized status record.
 
-## Dependency / lane
-- **Lane 2 (Gazebo backend) — start immediately, highest risk.** Rendering pipeline independent of A/B; launch wiring needs Theme B. Coordinate with **Theme E** (shared Gazebo container).
+Source of truth: [Simulation and Visualization PRD](../prds/uberos-simulation-visualization.md) section 7.6.
 
-## Decisions locked (from spike)
-- Client: minimal page on `gazebo-web/gzweb` (not `gazebosim-app`). Camera-sensor image topics out of scope. Pairing stays kilted/ionic.
+## Scope (FR-F1 to FR-F5)
 
-## Likely files
-- `services/gazebo/` (reshape `services/simulator`): headless `gz sim -s`, `.gzlaunch` with `WebsocketServer`
-- self-hosted gzweb static client (new)
-- `services/proxy/nginx.conf` (`/gzweb/` + `/gzweb/ws/`)
-- `compose.yaml` (gazebo service; retire vnc-for-gazebo)
+* FR-F1: Gazebo container runs headless `gz sim -s` with WebSocket scene-state streaming
+* FR-F2: Self-hosted minimal `gzweb` client is served behind the proxy through `/gzweb/` and `/gzweb/ws/`
+* FR-F3: Gazebo panel loads the `gzweb` client inside Golden Layout
+* FR-F4: Gazebo VNC path is retired; VNC remains for Turtlesim
+* FR-F5: Scene-state transport replaces pixel streaming for the Gazebo interactive path
 
-## Tasks
-- [ ] Research: confirm `gz-launch-websocket-server` in the base image; build minimal gzweb client bundle w/ configurable WS URL
-- [ ] Plan: gazebo service reshape + proxy routes + client bundle
-- [ ] Implement: headless server + WebsocketServer + client + routes; retire Gazebo VNC
-- [ ] Tests: gzweb panel renders; no x11vnc dep; measure lag < 300ms
-- [ ] Acceptance (PRD §7.6)
+## Status Summary
+
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| FR-F1       | Implemented | `compose.yaml` defines `gazebo` as headless server with health check on port 9002 |
+| FR-F2       | Implemented | Proxy serves static `gzweb` assets at `/gzweb/` and upgrades `/gzweb/ws/` to `gazebo:9002` |
+| FR-F3       | Implemented | Frontend panel model includes `gzweb` panel behavior in the default layout |
+| FR-F4       | Implemented | Legacy Gazebo `simulator` + `vnc` pipeline retired from default runtime stack |
+| FR-F5       | Partial | Transport migration is complete; latency target confirmation remains environment-measurement dependent |
+
+## Runtime Contract
+
+* Gazebo transport: `/gzweb/` for client assets, `/gzweb/ws/` for scene-state WebSocket
+* Turtlesim transport: `/sim/turtlesim/novnc/` for noVNC
+* Both simulator services are present in compose defaults
+
+## Evidence Pointers
+
+* `compose.yaml`
+* `services/proxy/nginx.conf`
+* `services/control/simulators.js`
+* `services/frontend/src/lib/panels.js`
+
+## Follow-On Work
+
+* Confirm FR-F5 latency target with repeatable measurement runs in CI-like host conditions
+* Deliver Theme B launch and stop simulator endpoints to complete menu lifecycle control
