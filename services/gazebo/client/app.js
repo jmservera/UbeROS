@@ -1,152 +1,103 @@
-// UbeROS minimal gzweb client (PRD Theme F, FR-F2/FR-F3).
+// UbeROS gzweb 3D client (PRD Theme F, FR-F3).
 //
 // WHAT THIS IS
-// A dependency-free, self-hosted client that connects to the Gazebo
-// gz-launch WebsocketServer THROUGH THE PROXY (window.GZWEB_WS_URL, default the
-// same-origin /gzweb/ws/) and drives the documented handshake: request the
-// world list + scene, then subscribe to the pose stream. It proves the
-// scene-state path works end to end and renders a live status + frame readout
-// inside the Golden Layout panel iframe.
+// A minimal single-page client that RENDERS the headless Gazebo simulation in
+// the browser using the gazebo-web `gzweb` SceneManager. The scene state
+// (models, lights, poses) is streamed as protobuf over a WebSocket from the
+// gz-launch WebsocketServer and reconstructed client-side with Three.js — no
+// server GL, no VNC, no pixel scraping. This replaces the earlier handshake-
+// only readout: SceneManager owns the protobuf decode (protobufjs), the scene
+// graph, and the render loop.
 //
-// PROTOCOL (from gz-launch WebsocketServer.hh)
-// Every message — request and response — is a single frame whose first three
-// comma-separated fields are text and whose remainder is a serialized protobuf
-// gz.msgs payload:
-//     operation , topic_name , message_type , <protobuf bytes>
-// Requests used here: `worlds`, `scene`, `sub` (subscribe to a topic). Responses
-// arrive as binary frames; this client parses the TEXT header (op/topic/type)
-// and counts throughput. It intentionally does NOT decode the protobuf payload.
+// PROXY WIRING (unchanged, INV-04)
+// The WebSocket endpoint is config-injected via window.GZWEB_WS_URL and defaults
+// to the SAME-ORIGIN /gzweb/ws/ path, so the client always talks THROUGH the
+// single proxy. config.js (imported below for its side effects) derives that
+// URL from the page origin; it must run before SceneManager reads the global.
 //
-// FOLLOW-UP (NOT DONE HERE — offline/no-bundler constraint)
-// Full 3D rendering requires two libraries this static, build-less page cannot
-// fetch offline: `protobufjs` (to decode the payloads returned by the `protos`
-// op) and `three` (to draw the scene). The maintained way to get both plus the
-// scene reconstruction logic is the `gazebo-web/gzweb` NPM library (`SceneManager`).
-// To finish FR-F3 rendering, a follow-up must:
-//   1. Add a small build step (or vendored bundle) that ships `gzweb` +
-//      `three` + `protobufjs` as static assets served under /gzweb/.
-//   2. Instantiate gzweb `SceneManager`, point it at window.GZWEB_WS_URL, and
-//      mount its Three.js canvas into #scene (replacing the placeholder text).
-//   3. Request `protos` on connect and hand frames to SceneManager for decode.
-// The connection/handshake/proxy wiring below is reusable as-is by that work.
+// HOW SceneManager IS DRIVEN (see gazebo-web/gzweb)
+//   - `new SceneManager({ elementId, websocketUrl })` would auto-connect, but we
+//     construct WITHOUT a url and call connect() ourselves so we can RETRY while
+//     the on-demand gazebo container is down (the socket 502s until it is up).
+//   - on 'connected' SceneManager mounts its Three.js <canvas> into #scene;
+//   - on 'ready' it auto-requests worlds/scene/protos, subscribes to the pose +
+//     scene topics, and runs its own requestAnimationFrame loop.
+// We layer a lightweight status overlay, reconnect, and resize handling on top.
 
-(function () {
-  'use strict';
+import './config.js';
+import { SceneManager } from 'gzweb';
 
-  var WS_URL = window.GZWEB_WS_URL;
-  var WORLD = window.GZWEB_WORLD || 'uberos_default';
+const WS_URL = window.GZWEB_WS_URL;
 
-  var dot = document.getElementById('dot');
-  var stateEl = document.getElementById('state');
-  var rateEl = document.getElementById('rate');
-  var countEl = document.getElementById('count');
-  var framesEl = document.getElementById('frames');
+const dot = document.getElementById('dot');
+const stateEl = document.getElementById('state');
+const metaEl = document.getElementById('meta');
+const sceneEl = document.getElementById('scene');
 
-  var total = 0;
-  var windowCount = 0;
-  var lastFrames = [];
-  var ws = null;
-  var reconnectTimer = null;
+function setState(text, cls) {
+  stateEl.textContent = text;
+  dot.className = 'dot' + (cls ? ' ' + cls : '');
+}
 
-  function setState(text, cls) {
-    stateEl.textContent = text;
-    dot.className = 'dot' + (cls ? ' ' + cls : '');
-  }
+// Construct without a websocketUrl so nothing connects until connect() below;
+// this lets us reconnect on our own schedule while gazebo is starting up.
+const sceneManager = new SceneManager({ elementId: 'scene' });
 
-  // Build a WebsocketServer request frame: "op,topic,type," + optional payload.
-  function frame(op, topic, type) {
-    return op + ',' + (topic || '') + ',' + (type || '') + ',';
-  }
+let lastAttempt = 0;
+let reconnectTimer = null;
 
-  // Parse the comma-separated text header from an incoming frame. The payload
-  // after the 3rd comma is opaque protobuf and is left undecoded.
-  function parseHeader(text) {
-    var parts = [];
-    var start = 0;
-    for (var i = 0; i < text.length && parts.length < 3; i++) {
-      if (text.charCodeAt(i) === 44 /* comma */) {
-        parts.push(text.slice(start, i));
-        start = i + 1;
-      }
-    }
-    return { op: parts[0] || '', topic: parts[1] || '', type: parts[2] || '' };
-  }
-
-  function logFrame(h) {
-    var label = h.op + (h.topic ? ' ' + h.topic : '') + (h.type ? ' [' + h.type + ']' : '');
-    lastFrames.unshift(label);
-    if (lastFrames.length > 40) lastFrames.pop();
-    framesEl.textContent = lastFrames.join('\n');
-  }
-
-  function onOpen() {
-    setState('connected', 'ok');
-    // Documented handshake: enumerate worlds, request the scene graph, and
-    // subscribe to the pose stream so live scene-state frames flow.
-    send(frame('worlds'));
-    send(frame('scene', WORLD));
-    send(frame('sub', '/world/' + WORLD + '/pose/info'));
-    send(frame('sub', '/world/' + WORLD + '/dynamic_pose/info'));
-  }
-
-  function send(f) {
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(f);
-  }
-
-  function onMessage(ev) {
-    total++;
-    windowCount++;
-    countEl.textContent = String(total);
-
-    var data = ev.data;
-    if (data instanceof ArrayBuffer) {
-      // Decode only the leading bytes needed for the text header (payload may be
-      // large binary protobuf; avoid decoding the whole blob every frame).
-      var head = new Uint8Array(data, 0, Math.min(data.byteLength, 256));
-      logFrame(parseHeader(bytesToLatin1(head)));
-    } else if (typeof data === 'string') {
-      logFrame(parseHeader(data));
-    }
-  }
-
-  function bytesToLatin1(bytes) {
-    var s = '';
-    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-    return s;
-  }
-
-  function onCloseOrError() {
-    setState('disconnected — retrying…', 'err');
+function connect() {
+  lastAttempt = Date.now();
+  setState('connecting…', '');
+  try {
+    sceneManager.connect(WS_URL);
+  } catch (e) {
     scheduleReconnect();
   }
+}
 
-  function scheduleReconnect() {
-    if (reconnectTimer) return;
-    reconnectTimer = setTimeout(function () {
-      reconnectTimer = null;
-      connect();
-    }, 2000);
-  }
-
-  function connect() {
-    setState('connecting…', '');
+function scheduleReconnect() {
+  if (reconnectTimer) return;
+  reconnectTimer = setTimeout(function () {
+    reconnectTimer = null;
+    // Drop the previous canvas + subscriptions before reconnecting so a fresh
+    // connect() re-mounts a single renderer (disconnect() removes the canvas).
     try {
-      ws = new WebSocket(WS_URL);
-      ws.binaryType = 'arraybuffer';
-      ws.onopen = onOpen;
-      ws.onmessage = onMessage;
-      ws.onclose = onCloseOrError;
-      ws.onerror = onCloseOrError;
+      sceneManager.disconnect();
     } catch (e) {
-      onCloseOrError();
+      /* ignore — nothing to clean up on the first attempt */
     }
+    connect();
+  }, 2000);
+}
+
+// Poll the SceneManager connection status once per second to drive the overlay
+// and trigger reconnects (gazebo is on-demand; the socket 502s until it is up).
+setInterval(function () {
+  const status = sceneManager.getConnectionStatus();
+  if (status === 'ready' || status === 'connected') {
+    setState('connected', 'ok');
+    const n = sceneManager.getModels().length;
+    metaEl.textContent = n + (n === 1 ? ' model' : ' models');
+  } else if (Date.now() - lastAttempt < 2500) {
+    // Give the in-flight attempt time to complete before reporting failure.
+    setState('connecting…', '');
+  } else {
+    setState('disconnected — retrying…', 'err');
+    metaEl.textContent = '';
+    scheduleReconnect();
   }
+}, 1000);
 
-  // Live throughput meter (messages/second), sampled once per second.
-  setInterval(function () {
-    rateEl.textContent = String(windowCount);
-    windowCount = 0;
-  }, 1000);
+// Keep the Three.js renderer sized to the panel. Golden Layout resizes the
+// iframe on drag/dock, and the initial layout may settle after first paint.
+if (window.ResizeObserver) {
+  new ResizeObserver(function () {
+    sceneManager.resize();
+  }).observe(sceneEl);
+}
+window.addEventListener('resize', function () {
+  sceneManager.resize();
+});
 
-  connect();
-})();
+connect();

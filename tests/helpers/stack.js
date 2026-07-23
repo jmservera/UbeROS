@@ -10,10 +10,12 @@ export const REPO_ROOT = resolve(__dirname, '..', '..');
 export const SERVICES = [
   'discovery-server',
   'ros',
-  'simulator',
-  'vnc',
+  'gazebo',
+  'gzweb-client',
+  'turtlesim',
   'editor',
   'frontend',
+  'control',
   'proxy',
 ];
 
@@ -39,6 +41,20 @@ export function execInService(service, shellCommand) {
     ['compose', 'exec', '-T', service, 'sh', '-c', shellCommand],
     { cwd: REPO_ROOT, encoding: 'utf8' }
   );
+}
+
+// Ensure an on-demand simulator's compose service is running before a test that
+// streams it. Simulators live behind the `simulators` compose profile and may
+// be created-but-stopped (autostart off) or not yet up; this brings the named
+// service up idempotently so the noVNC/gzweb stream has a live backend. Returns
+// the service health once `docker compose up` settles.
+export function ensureSimulatorRunning(service) {
+  execFileSync(
+    'docker',
+    ['compose', '--profile', 'simulators', 'up', '-d', service],
+    { cwd: REPO_ROOT, encoding: 'utf8' }
+  );
+  return healthSnapshot()[service];
 }
 
 // Poll a noVNC canvas until more than `threshold` of pixels are non-black or the

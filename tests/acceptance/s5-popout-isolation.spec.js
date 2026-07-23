@@ -17,7 +17,7 @@ test.describe('S5 - pop-out does not terminate the workload', () => {
 
     // Simulate a panel popped out into its own browser window (same session).
     const popup = await context.newPage();
-    await popup.goto('/novnc/vnc.html?autoconnect=true&resize=scale&path=novnc/websockify');
+    await popup.goto('/gzweb/');
     await popup.waitForTimeout(2000);
 
     // Closing the detached view must not stop any workload container.

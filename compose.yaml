@@ -89,12 +89,19 @@ services:
   # turtlesim); the proxy therefore must not hard-depend on it, and /gzweb/ws/
   # resolves gazebo lazily. On ros_net (DDS discovery, for the Theme E bridge)
   # and web_net (proxy). No host-published ports (INV-04, WP-13).
+  #
+  # Build-time selection (Theme D, FR-D1): two profiles gate this service — the
+  # umbrella `simulators` (all sims at once) and its own `sim-gazebo` (Gazebo
+  # only). COMPOSE_PROFILES picks the set, so `sim-gazebo` builds/creates just
+  # Gazebo while `sim-gazebo,sim-turtlesim` (or the umbrella `simulators`) yields
+  # both. Set UBEROS_SIMULATORS in tandem so the menu matches (see .env.example).
   gazebo:
     build:
       context: ./services/gazebo
       args:
         GZ_RELEASE: ${GZ_RELEASE:-ionic}
         ROS_DISTRO: ${ROS_DISTRO:-kilted}
+    profiles: ["simulators", "sim-gazebo"]
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -127,15 +134,21 @@ services:
   # Turtlesim visualizer (PRD Theme C). A lightweight, ROS-native second
   # simulator: Xvfb + turtlesim_node + openbox + x11vnc + websockify in one
   # container, streamed to the browser over noVNC at /sim/turtlesim/novnc/.
-  # Under the `simulators` profile so it is defined but launched on demand (the
-  # full build-selection matrix + auto-start is Theme D). On ros_net for the DDS
-  # discovery server and web_net for the proxy. No host-published ports.
+  # On ros_net for the DDS discovery server and web_net for the proxy. No
+  # host-published ports.
+  #
+  # Build-time selection (Theme D, FR-D1): two profiles gate this service — the
+  # umbrella `simulators` (all sims at once) and its own `sim-turtlesim`
+  # (Turtlesim only). COMPOSE_PROFILES picks the set, so `sim-turtlesim` builds/
+  # creates just Turtlesim while `sim-gazebo,sim-turtlesim` (or the umbrella
+  # `simulators`) yields both. Set UBEROS_SIMULATORS in tandem so the menu
+  # matches (see .env.example).
   turtlesim:
     build:
       context: ./services/turtlesim
       args:
         ROS_DISTRO: ${ROS_DISTRO:-kilted}
-    profiles: ["simulators"]
+    profiles: ["simulators", "sim-turtlesim"]
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -205,6 +218,29 @@ services:
       retries: 5
       start_period: 10s
 
+  # Built gzweb 3D client (PRD Theme F, FR-F3). A minimal single-page client that
+  # bundles the gazebo-web `gzweb` SceneManager + Three.js + protobufjs (fetched
+  # at build time through $NPM_REGISTRY, like the frontend image) and RENDERS the
+  # Gazebo scene state streamed from gazebo:9002 — no VNC, no server GL. Nginx
+  # serves the built assets at /gzweb/. Deliberately ALWAYS-ON (no simulators
+  # profile) so the panel shell at /gzweb/ loads even when the on-demand gazebo
+  # container is down; only the /gzweb/ws/ upgrade returns 502 until gazebo is up.
+  # No host-published ports — the proxy fronts it at /gzweb/ (INV-04, WP-13).
+  gzweb-client:
+    build:
+      context: ./services/gazebo/client
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
+    networks:
+      - web_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   control:
     build:
       context: ./services/control
@@ -250,6 +286,8 @@ services:
         condition: service_healthy
       frontend:
         condition: service_healthy
+      gzweb-client:
+        condition: service_healthy
       control:
         condition: service_healthy
     ports:
@@ -257,11 +295,6 @@ services:
     volumes:
       - ./services/proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./config/nginx:/etc/nginx/auth:ro
-      # Self-hosted gzweb static client (Theme F, FR-F2), served by nginx at
-      # /gzweb/. Mounted here (not baked into the gazebo image) so the panel
-      # shell is ALWAYS available even when the on-demand gazebo container is
-      # down; only the /gzweb/ws/ upgrade returns 502 until gazebo is up.
-      - ./services/gazebo/client:/usr/share/nginx/gzweb:ro
     networks:
       - web_net
       - ros_net

@@ -15,17 +15,36 @@
         font: 13px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       }
       #app {
-        display: flex;
-        flex-direction: column;
+        position: relative;
         height: 100%;
       }
+      /* gzweb's SceneManager mounts its Three.js <canvas> into #scene. It sizes
+         the renderer to this element's clientWidth/clientHeight, so #scene must
+         fill the panel. */
+      #scene {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+      }
+      #scene canvas {
+        display: block;
+      }
+      /* Status readout floats above the 3D canvas as a small overlay so the
+         canvas keeps the whole panel (FR-F3). pointer-events:none lets mouse
+         drags reach the OrbitControls underneath. */
       header {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        z-index: 2;
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 6px 10px;
-        background: #252526;
-        border-bottom: 1px solid #333;
+        padding: 5px 9px;
+        border-radius: 6px;
+        background: rgba(37, 37, 38, 0.82);
+        border: 1px solid #333;
+        pointer-events: none;
       }
       .dot {
         width: 9px;
@@ -44,61 +63,22 @@
         color: #fff;
       }
       header .meta {
-        margin-left: auto;
         color: #9a9a9a;
         font-variant-numeric: tabular-nums;
-      }
-      #scene {
-        flex: 1;
-        min-height: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 16px;
-        color: #8a8a8a;
-      }
-      #frames {
-        height: 30%;
-        min-height: 90px;
-        overflow: auto;
-        margin: 0;
-        padding: 8px 10px;
-        background: #151515;
-        border-top: 1px solid #333;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 12px;
-        white-space: pre-wrap;
-        word-break: break-all;
-      }
-      code {
-        color: #4ec9b0;
       }
     </style>
   </head>
   <body>
     <div id="app">
+      <div id="scene"></div>
       <header>
         <span id="dot" class="dot" aria-hidden="true"></span>
         <strong>Gazebo</strong>
         <span id="state">connecting…</span>
-        <span class="meta"><span id="rate">0</span> msg/s · <span id="count">0</span> total</span>
+        <span class="meta" id="meta"></span>
       </header>
-      <div id="scene">
-        <div>
-          <p><strong>Scene-state stream connected.</strong></p>
-          <p>
-            This is the minimal UbeROS gzweb client: it establishes the
-            WebsocketServer connection through the proxy (<code>/gzweb/ws/</code>)
-            and confirms live scene-state frames are flowing. Full Three.js 3D
-            rendering is a documented follow-up (see services/gazebo/client/app.js).
-          </p>
-        </div>
-      </div>
-      <pre id="frames" aria-live="polite"></pre>
     </div>
-    <!-- Config first so app.js can read window.GZWEB_WS_URL / GZWEB_WORLD. -->
-    <script src="config.js"></script>
-    <script src="app.js"></script>
+    <!-- app.js imports config.js first (side effect: window.GZWEB_WS_URL). -->
+    <script type="module" src="./app.js"></script>
   </body>
 </html>
