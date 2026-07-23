@@ -66,7 +66,7 @@ test.describe('S7 - system menu manages the workspace', () => {
     await page.getByRole('menuitem', { name: /Simulator enlarged/ }).click();
     // The simulator iframe is still present after rearranging.
     await expect(
-      page.locator('iframe.panel-frame[src*="novnc"]').first()
+      page.locator('iframe.panel-frame[src*="/gzweb/"]').first()
     ).toBeAttached();
   });
 });

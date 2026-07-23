@@ -68,14 +68,14 @@ jobs:
         working-directory: tests
         run: npm ci
 
-      - name: Install Playwright browsers
+      - name: Install Playwright browsers and Linux deps
         working-directory: tests
         run: npx playwright install --with-deps chromium
 
       - name: Run acceptance tests (S1 + S2)
         working-directory: tests
         run: >
-          npx playwright test
+          npm test --
           acceptance/s1-stack-health.spec.js
           acceptance/s2-window-manager.spec.js
 

@@ -30,7 +30,9 @@ try {
 const routes = [
   ['/healthz', [200]],
   ['/', [200]],
-  ['/novnc/vnc.html', [200]],
+  ['/gzweb/', [200]],
+  // Turtlesim noVNC is profile-gated: 200 when running, 502 when profile is off.
+  ['/sim/turtlesim/novnc/', [200, 502]],
   ['/terminal/', [200]],
   ['/editor/', [200, 302]],
 ];

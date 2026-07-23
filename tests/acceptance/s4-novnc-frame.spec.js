@@ -1,21 +1,20 @@
-// S4 - Simulator GUI is visible in a noVNC panel.
-// Machine-testable version: a non-blank frame appears within 30s and differs
-// from all-black by more than 5% of pixels. This also exercises SPIKE-A P5:
-// software-rendered Gazebo output reaching a browser noVNC canvas.
+// S4 - Simulator panel renders and receives live scene-state updates.
+// Theme F moved Gazebo from noVNC pixels to a gzweb scene-state websocket.
+// Machine-testable version: the self-hosted gzweb client reaches "connected"
+// state and increments total message count above zero.
 import { test, expect } from '@playwright/test';
-import { pollNonBlackRatio } from '../helpers/stack.js';
 
-test.describe('S4 - simulator GUI in noVNC', () => {
-  test('noVNC renders a non-blank frame within 30s', async ({ page }) => {
-    await page.goto('/novnc/vnc.html?autoconnect=true&resize=scale&path=novnc/websockify');
+test.describe('S4 - simulator panel stream', () => {
+  test('gzweb client connects and receives scene-state frames', async ({ page }) => {
+    await page.goto('/gzweb/');
 
-    const canvas = page.locator('#noVNC_canvas, canvas').first();
-    await expect(canvas).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Scene-state stream connected.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#state')).toHaveText(/connected/i, { timeout: 30_000 });
 
-    const ratio = await pollNonBlackRatio(page, 30_000, 0.05);
-    expect(
-      ratio,
-      `non-black pixel ratio (${(ratio * 100).toFixed(1)}%) should exceed 5%`
-    ).toBeGreaterThan(0.05);
+    await expect
+      .poll(async () => Number((await page.locator('#count').textContent()) || '0'), {
+        timeout: 30_000,
+      })
+      .toBeGreaterThan(0);
   });
 });
