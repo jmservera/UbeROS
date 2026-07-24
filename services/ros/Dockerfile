@@ -60,7 +60,7 @@ RUN chmod +x /entrypoint.sh /usr/local/bin/uberos-term
 
 ENV ROS_DOMAIN_ID=42
 ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-ENV FASTRTPS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
+ENV FASTDDS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
 
 # rosbridge WebSocket and ttyd. Exposed for inter-container use only; the proxy
 # is the sole ingress and these ports must never be host-published.

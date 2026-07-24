@@ -30,6 +30,11 @@ WS_PID=$!
 # relax nounset while sourcing), then start parameter_bridge with the /clock
 # config. gz sim/gz launch were started ABOVE, before ROS is on PATH, so they
 # keep their native gz environment and are unaffected by the ROS overlay.
+if [[ -z "${ROS_DISTRO:-}" ]]; then
+    echo "ERROR: ROS_DISTRO is required for Theme E bridge startup" >&2
+    exit 1
+fi
+
 set +u
 # shellcheck source=/dev/null
 source "/opt/ros/${ROS_DISTRO}/setup.bash"

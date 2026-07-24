@@ -67,7 +67,7 @@ RUN . /etc/os-release \
 # over unicast (FR-E3/FR-E4, RISK-4). Same profile the ros/turtlesim services
 # carry; ROS_DISCOVERY_SERVER + ROS_DOMAIN_ID are supplied by compose.
 COPY config/dds_discovery.xml /etc/ros/dds_discovery.xml
-ENV FASTRTPS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
+ENV FASTDDS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
 
 # Default bridge topic map (/clock). Additive: more topics append here (FR-E2).
 COPY config/ros_gz_bridge.yaml /etc/uberos/ros_gz_bridge.yaml

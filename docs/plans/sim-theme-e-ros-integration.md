@@ -34,7 +34,7 @@ source /opt/ros/${ROS_DISTRO}/setup.bash
 export ROS_DOMAIN_ID=42
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 export ROS_DISCOVERY_SERVER=discovery-server:11811
-export FASTRTPS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
+export FASTDDS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
 ros2 topic echo /clock rosgraph_msgs/msg/Clock --once
 ```
 
@@ -45,4 +45,4 @@ Notes:
 - The explicit type in `ros2 topic echo` is required for a reliable check.
 - `ROS_DISCOVERY_SERVER` must be `discovery-server:11811` with no spaces around `:`.
 - Use `--once` (no space), not `-- once`.
-- Fast DDS warns that `FASTRTPS_DEFAULT_PROFILES_FILE` is deprecated. Prefer `FASTDDS_DEFAULT_PROFILES_FILE` for future updates.
+- Fast DDS deprecates `FASTRTPS_DEFAULT_PROFILES_FILE`; use `FASTDDS_DEFAULT_PROFILES_FILE`.
