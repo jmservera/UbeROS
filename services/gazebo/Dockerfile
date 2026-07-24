@@ -15,6 +15,10 @@ ARG GZ_RELEASE=ionic
 ARG ROS_DISTRO=kilted
 FROM ghcr.io/openrobotics/gazebo:${GZ_RELEASE}-full
 
+# Hadolint DL4006: RUN commands in this file use pipes, so execute RUN with
+# bash + pipefail to propagate errors from all pipeline segments.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # ROS_DISTRO is not automatically re-exposed after FROM; redeclare it so the
 # Theme E ros_gz bridge (added later to this same container) can source ROS.
 ARG ROS_DISTRO
