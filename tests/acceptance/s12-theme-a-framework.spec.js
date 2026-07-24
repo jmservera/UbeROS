@@ -2,7 +2,7 @@
 // Covers FR-A3 additive extensibility proof and FR-A4 launch/stop lifecycle
 // evidence through ROS node graph visibility.
 import { test, expect } from '@playwright/test';
-import { execInService } from '../helpers/stack.js';
+import { execInService, ensureSimulatorNoVncReady } from '../helpers/stack.js';
 
 async function getSimulators(request) {
   const res = await request.get('/control/simulators');
@@ -70,7 +70,7 @@ test.describe('S12 - Theme A framework deterministic evidence', () => {
   });
 
   test('FR-A4: stop and launch are reflected in ROS graph node visibility', async ({ request }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
 
     const simulators = await getSimulators(request);
     const turtlesim = simulators.find((s) => s.id === 'turtlesim');
@@ -103,8 +103,10 @@ test.describe('S12 - Theme A framework deterministic evidence', () => {
         }, { timeout: 30_000 })
         .toMatch(/starting|running/);
 
+      await ensureSimulatorNoVncReady(request, 'turtlesim', '/sim/turtlesim/novnc/');
+
       await expect
-        .poll(() => rosNodeList(), { timeout: 60_000 })
+        .poll(() => rosNodeList(), { timeout: 120_000 })
         .toContain('/turtlesim');
     } finally {
       if (!wasRunning) {

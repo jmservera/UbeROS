@@ -2,42 +2,30 @@
 // Verifies the turtlesim noVNC route, ROS topic visibility, and a command-path
 // drivability signal using ROS CLI checks from the ros service container.
 import { test, expect } from '@playwright/test';
-import { execInService } from '../helpers/stack.js';
+import { execInService, getSimulators, ensureSimulatorNoVncReady } from '../helpers/stack.js';
 
-async function getSimulators(request) {
-  const res = await request.get('/control/simulators');
-  expect(res.status()).toBe(200);
-  const body = await res.json();
-  return body.simulators ?? [];
-}
+// Branch policy for FR-C3 in this closure: deterministic readiness is proven by
+// noVNC route reachability + turtlesim node graph visibility + ROS baseline topics.
+const FR_C3_SIGNAL_POLICY = Object.freeze({
+  requiredNode: '/turtlesim',
+  requiredTopics: ['/parameter_events', '/rosout'],
+});
 
 async function ensureTurtlesimRunning(request) {
   const simulators = await getSimulators(request);
   const turtlesim = simulators.find((s) => s.id === 'turtlesim');
   test.skip(!turtlesim, 'turtlesim simulator is not installed in this build');
 
-  if (turtlesim.state !== 'running') {
-    const launch = await request.post('/control/simulators/turtlesim/launch');
-    expect([200, 404]).toContain(launch.status());
-  }
-
-  await expect
-    .poll(async () => {
-      const sims = await getSimulators(request);
-      return sims.find((s) => s.id === 'turtlesim')?.state ?? 'missing';
-    }, { timeout: 30_000 })
-    .toMatch(/starting|running/);
-
-  // Lifecycle state can flip to running before noVNC and ROS graph are fully ready.
-  await expect
-    .poll(async () => (await request.get('/sim/turtlesim/novnc/')).status(), {
-      timeout: 45_000,
-    })
-    .toBe(200);
+  await ensureSimulatorNoVncReady(request, 'turtlesim', '/sim/turtlesim/novnc/');
 
   await expect
     .poll(() => rosNodeList(), { timeout: 45_000 })
-    .toEqual(expect.arrayContaining(['/turtlesim']));
+    .toEqual(expect.arrayContaining([FR_C3_SIGNAL_POLICY.requiredNode]));
+}
+
+function assertFrC3DeterministicSignal() {
+  const topics = rosTopicList();
+  expect(topics).toEqual(expect.arrayContaining(FR_C3_SIGNAL_POLICY.requiredTopics));
 }
 
 function rosTopicList() {
@@ -68,16 +56,15 @@ function rosShell(command) {
 
 test.describe('S11 - Theme C turtlesim deterministic evidence', () => {
   test('FR-C2/FR-C3: noVNC route is reachable and turtlesim node joins ROS graph', async ({ request }) => {
+    test.setTimeout(180_000);
     await ensureTurtlesimRunning(request);
-
-    // Topic enumeration is intermittently sparse in this runtime, but the
-    // baseline ROS graph should still expose user-facing turtlesim topics.
-    const topics = rosTopicList();
-    expect(topics).toEqual(expect.arrayContaining(['/parameter_events', '/rosout']));
+    assertFrC3DeterministicSignal();
   });
 
   test('FR-C4: turtlesim is drivable from ROS command path', async ({ request }) => {
+    test.setTimeout(180_000);
     await ensureTurtlesimRunning(request);
+    assertFrC3DeterministicSignal();
 
     const publishOutput = execInService(
       'ros',

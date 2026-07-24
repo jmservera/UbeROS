@@ -24,6 +24,14 @@ async function pollSimulatorState(request, id, states, timeoutMs = 90_000) {
   return last;
 }
 
+async function getSimulatorState(request, id) {
+  const res = await request.get('/control/simulators');
+  if (!res.ok()) return 'unknown';
+  const { simulators } = await res.json();
+  const sim = simulators.find((s) => s.id === id);
+  return sim?.state ?? 'missing';
+}
+
 test.describe('S10 - simulator menu and lifecycle', () => {
   test('GET /control/simulators lists gazebo and turtlesim with state', async ({ request }) => {
     const res = await request.get('/control/simulators');
@@ -59,6 +67,7 @@ test.describe('S10 - simulator menu and lifecycle', () => {
   });
 
   test('stop then launch turtlesim transitions its state', async ({ request }) => {
+    test.setTimeout(120_000);
     // Make sure it is up first so the transitions are meaningful.
     ensureSimulatorRunning('turtlesim');
     const running = await pollSimulatorState(request, 'turtlesim', ['running', 'starting']);
@@ -70,6 +79,9 @@ test.describe('S10 - simulator menu and lifecycle', () => {
     expect((await stop.json()).stopped).toBe('turtlesim');
     const stopped = await pollSimulatorState(request, 'turtlesim', ['stopped']);
     expect(stopped, 'turtlesim reports stopped after Stop').toBe('stopped');
+    // Contract guard: user-triggered stop must not classify as failed.
+    const stopState = await getSimulatorState(request, 'turtlesim');
+    expect(stopState).toBe('stopped');
 
     // Launch it again (FR-B2) and watch it come back to running.
     const launch = await request.post('/control/simulators/turtlesim/launch');
@@ -77,6 +89,28 @@ test.describe('S10 - simulator menu and lifecycle', () => {
     expect((await launch.json()).launched).toBe('turtlesim');
     const back = await pollSimulatorState(request, 'turtlesim', ['running', 'starting']);
     expect(['running', 'starting'], 'turtlesim restarts after Launch').toContain(back);
+  });
+
+  test('stop lifecycle mapping settles to stopped for turtlesim stop flow', async ({ request }) => {
+    test.setTimeout(120_000);
+    ensureSimulatorRunning('turtlesim');
+    await pollSimulatorState(request, 'turtlesim', ['running']);
+
+    try {
+      const stop = await request.post('/control/simulators/turtlesim/stop');
+      expect(stop.status()).toBe(200);
+
+      await expect
+        .poll(async () => getSimulatorState(request, 'turtlesim'), {
+          timeout: 60_000,
+          intervals: [2000],
+        })
+        .toBe('stopped');
+    } finally {
+      const launch = await request.post('/control/simulators/turtlesim/launch');
+      expect(launch.status()).toBe(200);
+      await pollSimulatorState(request, 'turtlesim', ['running', 'starting']);
+    }
   });
 
   test('an unknown simulator id is rejected', async ({ request }) => {

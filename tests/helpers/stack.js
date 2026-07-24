@@ -57,6 +57,91 @@ export function ensureSimulatorRunning(service) {
   return healthSnapshot()[service];
 }
 
+export async function getSimulators(request) {
+  const res = await request.get('/control/simulators');
+  if (!res.ok()) {
+    throw new Error(`GET /control/simulators failed with status ${res.status()}`);
+  }
+  const body = await res.json();
+  return body.simulators ?? [];
+}
+
+export async function pollSimulatorState(
+  request,
+  id,
+  states,
+  timeoutMs = 90_000,
+  intervalMs = 2_000
+) {
+  const deadline = Date.now() + timeoutMs;
+  let last = 'missing';
+
+  while (Date.now() < deadline) {
+    const sims = await getSimulators(request);
+    last = sims.find((s) => s.id === id)?.state ?? 'missing';
+    if (states.includes(last)) {
+      return last;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  return last;
+}
+
+export async function waitForNoVncRoute(
+  request,
+  path,
+  timeoutMs = 45_000,
+  intervalMs = 2_000
+) {
+  const deadline = Date.now() + timeoutMs;
+  let lastStatus = 0;
+
+  while (Date.now() < deadline) {
+    const res = await request.get(path);
+    lastStatus = res.status();
+    if (lastStatus === 200) {
+      return lastStatus;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  return lastStatus;
+}
+
+export async function ensureSimulatorNoVncReady(
+  request,
+  id,
+  noVncPath,
+  timeoutMs = 150_000
+) {
+  ensureSimulatorRunning(id);
+
+  // Ask the control plane to launch the simulator in case it was intentionally
+  // stopped by prior lifecycle tests in the same full-suite run.
+  const launch = await request.post(`/control/simulators/${id}/launch`);
+  if (![200, 404].includes(launch.status())) {
+    throw new Error(
+      `POST /control/simulators/${id}/launch failed with status ${launch.status()}`
+    );
+  }
+
+  const state = await pollSimulatorState(
+    request,
+    id,
+    ['starting', 'running'],
+    timeoutMs
+  );
+  if (!['starting', 'running'].includes(state)) {
+    throw new Error(`Simulator ${id} did not reach starting/running; last state: ${state}`);
+  }
+
+  const noVncStatus = await waitForNoVncRoute(request, noVncPath, timeoutMs);
+  if (noVncStatus !== 200) {
+    throw new Error(`${noVncPath} did not become ready; last status: ${noVncStatus}`);
+  }
+}
+
 // Poll a noVNC canvas until more than `threshold` of pixels are non-black or the
 // deadline passes. Returns the best observed non-black ratio.
 export async function pollNonBlackRatio(page, timeoutMs, threshold) {

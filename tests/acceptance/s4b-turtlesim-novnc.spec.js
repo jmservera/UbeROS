@@ -6,7 +6,11 @@
 // from all-black by more than 5% of pixels (turtlesim's canvas is a solid blue
 // field with the turtle, so a live stream is well above the threshold).
 import { test, expect } from '@playwright/test';
-import { pollNonBlackRatio, ensureSimulatorRunning } from '../helpers/stack.js';
+import {
+  pollNonBlackRatio,
+  ensureSimulatorRunning,
+  ensureSimulatorNoVncReady,
+} from '../helpers/stack.js';
 
 test.describe('S4b - Turtlesim via noVNC', () => {
   // Turtlesim is on-demand; make sure its container is up before we stream it.
@@ -15,6 +19,9 @@ test.describe('S4b - Turtlesim via noVNC', () => {
   });
 
   test('noVNC renders a non-blank Turtlesim frame within 30s', async ({ page }) => {
+    test.setTimeout(180_000);
+    await ensureSimulatorNoVncReady(page.request, 'turtlesim', '/sim/turtlesim/novnc/');
+
     // noVNC defaults its WebSocket to ws://host/websockify at the origin root,
     // which the single proxy routes to the frontend (not the simulator), so the
     // handshake fails. The panel pins `path` to the simulator's proxied
