@@ -1,0 +1,27 @@
+# UbeROS ros_gz bridge config (PRD Theme E, FR-E2).
+#
+# Consumed by ros_gz_bridge's `parameter_bridge` (`--ros-args -p config_file:=`),
+# which runs co-located with `gz sim` in THIS container (FR-E1). The bridge is
+# the only component that speaks both transports: it reads gz-transport topics
+# over localhost (intra-container, reliable) and republishes them on the ROS
+# graph, which is discovered over the Fast DDS discovery server via unicast
+# (FR-E3). gz sim itself never joins DDS.
+#
+# Default topic set is intentionally minimal: only the simulation clock, so ROS
+# nodes can run on simulated time. Additional per-world/per-model topics
+# (e.g. /cmd_vel, /odom, joint states, TF) are ADDITIVE — append more list
+# entries here (or supply a world-specific config via UBEROS_BRIDGE_CONFIG)
+# without changing the entrypoint.
+#
+# Entry schema (ros_gz_bridge): each list item maps one ROS topic to one gz
+# topic with an explicit message-type pair and a direction. Directions are
+# GZ_TO_ROS, ROS_TO_GZ, or BIDIRECTIONAL.
+
+# /clock — simulation time published by gz sim's physics; bridged into ROS as
+# rosgraph_msgs/msg/Clock so `use_sim_time` consumers follow the simulator.
+# One-way (GZ_TO_ROS): nothing in ROS should drive the simulator's clock.
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS

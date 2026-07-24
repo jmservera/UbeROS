@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Fast DDS Discovery Server client profile (PRD Theme E, FR-E4).
+
+  This is the Gazebo container's copy of the shared discovery-client profile
+  (kept aligned with services/ros/config/dds_discovery.xml for behavior). The ros_gz bridge that
+  runs in this container joins the ROS graph through the central
+  discovery-server over UNICAST — Docker bridge networks do not reliably carry
+  the multicast that default DDS discovery relies on (research RISK-4).
+
+  Only the bridge's DDS side uses this profile; gz sim's own gz-transport
+  discovery stays intra-container and is unaffected.
+-->
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <profiles>
+    <participant profile_name="uberos_discovery_client" is_default_profile="true">
+      <rtps>
+        <builtin>
+          <discovery_config>
+            <discoveryProtocol>CLIENT</discoveryProtocol>
+            <discoveryServersList>
+              <!-- Fast DDS 3.x (ROS Kilted): discoveryServersList children are
+                   <locator> elements directly. The pre-3.x
+                   <RemoteServer prefix="GUID"> form was removed and makes the
+                   parser treat the list as empty ("without content"). -->
+              <locator>
+                <udpv4>
+                  <address>discovery-server</address>
+                  <port>11811</port>
+                </udpv4>
+              </locator>
+            </discoveryServersList>
+          </discovery_config>
+        </builtin>
+      </rtps>
+    </participant>
+  </profiles>
+</dds>

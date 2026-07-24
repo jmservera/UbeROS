@@ -661,10 +661,13 @@ exec ros2 launch rosbridge_server rosbridge_websocket_launch.xml port:=9090
 ROS_DOMAIN_ID=42
 ROS_DISCOVERY_SERVER=discovery-server:11811
 RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-FASTRTPS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
+FASTDDS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
 ```
 
 Domain ID `42` is inside the cross-platform-safe range of 0–101.[^dds-domain]
+
+`FASTRTPS_DEFAULT_PROFILES_FILE` is deprecated in current Fast DDS releases.
+Use `FASTDDS_DEFAULT_PROFILES_FILE` for active deployments.
 
 > **Recommendation:** Use a Fast DDS Discovery Server because Docker bridge networks do not reliably carry the multicast discovery used by default DDS configuration. Without explicit discovery, ROS nodes in separate containers can silently fail to find each other.[^dds-multicast]
 
@@ -1014,7 +1017,7 @@ RUN chmod +x /entrypoint.sh
 
 ENV ROS_DOMAIN_ID=42
 ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-ENV FASTRTPS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
+ENV FASTDDS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
 
 EXPOSE 9090 7681
 ENTRYPOINT ["/entrypoint.sh"]

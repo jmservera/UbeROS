@@ -22,18 +22,40 @@ GZ_PID=$!
 gz launch -v 1 "${LAUNCH_FILE}" &
 WS_PID=$!
 
-# --- Theme E integration point (ros_gz bridge) --------------------------------
-# The ros_gz bridge is OUT OF SCOPE for Theme F. Theme E adds ROS + the bridge
-# to THIS container: install ros-${ROS_DISTRO}-ros-gz in the Dockerfile, then
-# source ROS and start the bridge here, e.g.
-#   set +u; source "/opt/ros/${ROS_DISTRO}/setup.bash"; set -u
-#   ros2 run ros_gz_bridge parameter_bridge ... &
-# Nothing above depends on ROS, so the headless web-viz path works standalone.
+# --- Theme E integration point (ros_gz bridge, FR-E1..FR-E4) ------------------
+# The ros_gz bridge runs co-located with `gz sim` in THIS container so the
+# gz-transport hop stays intra-container (localhost) and only the DDS side
+# crosses the network, via the Fast DDS discovery server (unicast, no
+# multicast). Source ROS first (its setup scripts reference unbound vars, so
+# relax nounset while sourcing), then start parameter_bridge with the /clock
+# config. gz sim/gz launch were started ABOVE, before ROS is on PATH, so they
+# keep their native gz environment and are unaffected by the ROS overlay.
+if [[ -z "${ROS_DISTRO:-}" ]]; then
+    echo "ERROR: ROS_DISTRO is required for Theme E bridge startup" >&2
+    exit 1
+fi
+
+set +u
+# shellcheck source=/dev/null
+source "/opt/ros/${ROS_DISTRO}/setup.bash"
+set -u
+
+BRIDGE_CONFIG="${UBEROS_BRIDGE_CONFIG:-/etc/uberos/ros_gz_bridge.yaml}"
+
+# Invoke the parameter_bridge executable by its full install path instead of
+# `ros2 run`: this headless image installs only ros-gz-bridge (no ros2cli), so
+# the `ros2` CLI plugin is not present. The bridge reads the YAML topic map and
+# registers on the ROS graph through the discovery server (env from compose).
+# Bridge may start before `gz sim` advertises /clock; this is intentional (it reconnects when /clock appears).
+"/opt/ros/${ROS_DISTRO}/lib/ros_gz_bridge/parameter_bridge" \
+    --ros-args -p "config_file:=${BRIDGE_CONFIG}" &
+BRIDGE_PID=$!
 # ------------------------------------------------------------------------------
 
-# Forward termination to both children for a clean shutdown.
-trap 'kill -TERM "${GZ_PID}" "${WS_PID}" 2>/dev/null || true' TERM INT
+# Forward termination to all children for a clean shutdown.
+trap 'kill -TERM "${GZ_PID}" "${WS_PID}" "${BRIDGE_PID}" 2>/dev/null || true' TERM INT
 
-# Exit as soon as either process dies so Docker's restart policy can recover the
-# pair (a lone websocket server or a lone sim is not useful).
-wait -n "${GZ_PID}" "${WS_PID}"
+# Exit as soon as any core process dies so Docker's restart policy can recover
+# the group (a lone websocket server, a lone sim, or a lone bridge is not
+# useful).
+wait -n "${GZ_PID}" "${WS_PID}" "${BRIDGE_PID}"

@@ -58,7 +58,7 @@ services:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-42}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
       ROS_DISCOVERY_SERVER: discovery-server:11811
-      FASTRTPS_DEFAULT_PROFILES_FILE: /etc/ros/dds_discovery.xml
+      FASTDDS_DEFAULT_PROFILES_FILE: /etc/ros/dds_discovery.xml
     volumes:
       - ./workspace/src:/ros_ws/src
       - ros-workspace:/ros_ws
@@ -103,6 +103,10 @@ services:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-42}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
       ROS_DISCOVERY_SERVER: discovery-server:11811
+      # The co-located ros_gz bridge (Theme E) joins the ROS graph over the
+      # discovery server via unicast; this XML profile (bundled in the image)
+      # points its DDS participant at discovery-server:11811 (FR-E3/FR-E4).
+      FASTDDS_DEFAULT_PROFILES_FILE: /etc/ros/dds_discovery.xml
     volumes:
       - ./simulation:/simulation:ro
       - gazebo-home:/root/.gz
@@ -139,7 +143,7 @@ services:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-42}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
       ROS_DISCOVERY_SERVER: discovery-server:11811
-      FASTRTPS_DEFAULT_PROFILES_FILE: /etc/ros/dds_discovery.xml
+      FASTDDS_DEFAULT_PROFILES_FILE: /etc/ros/dds_discovery.xml
     networks:
       - ros_net
       - web_net
