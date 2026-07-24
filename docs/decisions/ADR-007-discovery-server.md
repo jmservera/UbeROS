@@ -20,7 +20,7 @@ DDS ports and break the single-ingress invariant (INV-04).
 Run a dedicated **Fast DDS Discovery Server** as its own service
 (`fastdds discovery -i 0 -l 0.0.0.0 -p 11811`) on the internal `ros_net`. The
 `ros` and `simulator` services point at it via `ROS_DISCOVERY_SERVER` and a
-`FASTRTPS_DEFAULT_PROFILES_FILE` (`dds_discovery.xml`), replacing multicast with
+`FASTDDS_DEFAULT_PROFILES_FILE` (`dds_discovery.xml`), replacing multicast with
 a unicast client/server discovery model.
 
 ## Alternatives considered

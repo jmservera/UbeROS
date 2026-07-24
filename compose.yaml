@@ -58,7 +58,7 @@ services:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-42}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
       ROS_DISCOVERY_SERVER: discovery-server:11811
-      FASTRTPS_DEFAULT_PROFILES_FILE: /etc/ros/dds_discovery.xml
+      FASTDDS_DEFAULT_PROFILES_FILE: /etc/ros/dds_discovery.xml
     volumes:
       - ./workspace/src:/ros_ws/src
       - ros-workspace:/ros_ws
@@ -85,10 +85,11 @@ services:
   # SCENE STATE (protobuf over WebSocket) to the browser gzweb client, which
   # renders it client-side. No Xvfb, no VNC, no server GL — this removes the
   # software-render/pixel-scrape bottleneck and targets < 300ms interaction
-  # (FR-F5). Under the `simulators` profile so it launches on demand (like
-  # turtlesim); the proxy therefore must not hard-depend on it, and /gzweb/ws/
-  # resolves gazebo lazily. On ros_net (DDS discovery, for the Theme E bridge)
-  # and web_net (proxy). No host-published ports (INV-04, WP-13).
+  # (FR-F5). Gazebo is part of the default stack. The proxy still uses lazy
+  # DNS for /gzweb/ws/ so
+  # startup remains resilient if gazebo is temporarily unavailable (for example,
+  # during restarts). On ros_net (DDS discovery, for the Theme E bridge) and
+  # web_net (proxy). No host-published ports (INV-04, WP-13).
   #
   # Build-time selection (Theme D, FR-D1): two profiles gate this service — the
   # umbrella `simulators` (all sims at once) and its own `sim-gazebo` (Gazebo
@@ -112,7 +113,7 @@ services:
       # The co-located ros_gz bridge (Theme E) joins the ROS graph over the
       # discovery server via unicast; this XML profile (bundled in the image)
       # points its DDS participant at discovery-server:11811 (FR-E3/FR-E4).
-      FASTRTPS_DEFAULT_PROFILES_FILE: /etc/ros/dds_discovery.xml
+      FASTDDS_DEFAULT_PROFILES_FILE: /etc/ros/dds_discovery.xml
     volumes:
       - ./simulation:/simulation:ro
       - gazebo-home:/root/.gz
@@ -134,21 +135,13 @@ services:
   # Turtlesim visualizer (PRD Theme C). A lightweight, ROS-native second
   # simulator: Xvfb + turtlesim_node + openbox + x11vnc + websockify in one
   # container, streamed to the browser over noVNC at /sim/turtlesim/novnc/.
-  # On ros_net for the DDS discovery server and web_net for the proxy. No
-  # host-published ports.
-  #
-  # Build-time selection (Theme D, FR-D1): two profiles gate this service — the
-  # umbrella `simulators` (all sims at once) and its own `sim-turtlesim`
-  # (Turtlesim only). COMPOSE_PROFILES picks the set, so `sim-turtlesim` builds/
-  # creates just Turtlesim while `sim-gazebo,sim-turtlesim` (or the umbrella
-  # `simulators`) yields both. Set UBEROS_SIMULATORS in tandem so the menu
-  # matches (see .env.example).
+  # Enabled in the default stack alongside Gazebo. On ros_net for the DDS
+  # discovery server and web_net for the proxy. No host-published ports.
   turtlesim:
     build:
       context: ./services/turtlesim
       args:
         ROS_DISTRO: ${ROS_DISTRO:-kilted}
-    profiles: ["simulators", "sim-turtlesim"]
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -157,7 +150,7 @@ services:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-42}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
       ROS_DISCOVERY_SERVER: discovery-server:11811
-      FASTRTPS_DEFAULT_PROFILES_FILE: /etc/ros/dds_discovery.xml
+      FASTDDS_DEFAULT_PROFILES_FILE: /etc/ros/dds_discovery.xml
     networks:
       - ros_net
       - web_net
@@ -247,9 +240,6 @@ services:
     environment:
       # Compose project name used to scope Docker API queries (matches `name:`).
       UBEROS_PROJECT: ${COMPOSE_PROJECT_NAME:-uberos}
-      # Services the system menu is allowed to restart (BR-007). The control
-      # plane itself, the proxy, and discovery-server are intentionally excluded.
-      UBEROS_SERVICES: ${UBEROS_SERVICES:-ros,gazebo,editor,frontend}
       # Installed simulators exposed by the registry (FR-A1) and which of them
       # auto-start at stack up (FR-B8). UBEROS_SIMULATORS defaults to the whole
       # catalog; UBEROS_SIMULATORS_AUTOSTART, when unset, honors each entry's
@@ -257,6 +247,9 @@ services:
       # stops these on demand and reconciles autostart intent at boot.
       UBEROS_SIMULATORS: ${UBEROS_SIMULATORS:-gazebo,turtlesim}
       UBEROS_SIMULATORS_AUTOSTART: ${UBEROS_SIMULATORS_AUTOSTART:-}
+      # Services the system menu is allowed to restart (BR-007). The control
+      # plane itself, the proxy, and discovery-server are intentionally excluded.
+      UBEROS_SERVICES: ${UBEROS_SERVICES:-ros,gazebo,turtlesim,editor,frontend}
       # Surfaced to the SPA so it knows whether to show Logout (BR-008).
       UBEROS_AUTH: ${UBEROS_AUTH:-off}
       # Path to the persisted system settings store (Theme C, FR-C2). Lives on
@@ -295,6 +288,11 @@ services:
     volumes:
       - ./services/proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./config/nginx:/etc/nginx/auth:ro
+      # Self-hosted gzweb static client (Theme F, FR-F2), served by nginx at
+      # /gzweb/. Mounted here (not baked into the gazebo image) so the panel
+      # shell is ALWAYS available even when the default-enabled gazebo container is
+      # down; only the /gzweb/ws/ upgrade returns 502 until gazebo is up.
+      - ./services/gazebo/client:/usr/share/nginx/gzweb:ro
     networks:
       - web_net
       - ros_net

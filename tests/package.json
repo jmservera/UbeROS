@@ -5,6 +5,9 @@
   "type": "module",
   "description": "WP-15 acceptance tests: machine-verify success criteria S1-S6 against a running UbeROS stack.",
   "scripts": {
+    "ensure:browsers": "node ensure-playwright-browser.mjs",
+    "pretest": "npm run ensure:browsers",
+    "pretest:headed": "npm run ensure:browsers",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "smoke": "node smoke.mjs",

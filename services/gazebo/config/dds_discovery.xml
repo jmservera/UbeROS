@@ -3,7 +3,7 @@
   Fast DDS Discovery Server client profile (PRD Theme E, FR-E4).
 
   This is the Gazebo container's copy of the shared discovery-client profile
-  (identical to services/ros/config/dds_discovery.xml). The ros_gz bridge that
+  (kept aligned with services/ros/config/dds_discovery.xml for behavior). The ros_gz bridge that
   runs in this container joins the ROS graph through the central
   discovery-server over UNICAST — Docker bridge networks do not reliably carry
   the multicast that default DDS discovery relies on (research RISK-4).

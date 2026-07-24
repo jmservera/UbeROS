@@ -15,15 +15,17 @@ ARG GZ_RELEASE=ionic
 ARG ROS_DISTRO=kilted
 FROM ghcr.io/openrobotics/gazebo:${GZ_RELEASE}-full
 
+# Hadolint DL4006: RUN commands in this file use pipes, so execute RUN with
+# bash + pipefail to propagate errors from all pipeline segments.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # ROS_DISTRO is not automatically re-exposed after FROM; redeclare it so the
 # Theme E ros_gz bridge (added later to this same container) can source ROS.
 ARG ROS_DISTRO
 ENV ROS_DISTRO=${ROS_DISTRO}
 
 # procps provides pgrep for the health check. The gz-launch websocket server
-# plugin is already present in the `-full` image; installed defensively in case
-# a slimmer base is pinned later (the package is a no-op if already satisfied).
-# curl/gnupg2/ca-certificates are needed to add the ROS apt repo below.
+# plugin is expected to be present in the `-full` image used by this service.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         procps \
@@ -47,8 +49,13 @@ RUN apt-get update \
 # pinned to kilted<->ionic (FR-E5); changing one without the other can pull a
 # mismatched Gazebo.
 RUN . /etc/os-release \
-    && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
-        -o /usr/share/keyrings/ros-archive-keyring.gpg \
+    && UBUNTU_CODENAME="${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}" \
+    && test -n "${UBUNTU_CODENAME}" \
+    && curl -fsSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+        | gpg --dearmor -o /usr/share/keyrings/ros-archive-keyring.gpg \
+    # NOTE: HTTP is intentional here. In this environment the HTTPS endpoint
+    # fails certificate principal validation (`SEC_E_WRONG_PRINCIPAL`), while
+    # HTTP works reliably for apt index retrieval.
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu ${UBUNTU_CODENAME} main" \
         > /etc/apt/sources.list.d/ros2.list \
     && apt-get update \
@@ -60,7 +67,7 @@ RUN . /etc/os-release \
 # over unicast (FR-E3/FR-E4, RISK-4). Same profile the ros/turtlesim services
 # carry; ROS_DISCOVERY_SERVER + ROS_DOMAIN_ID are supplied by compose.
 COPY config/dds_discovery.xml /etc/ros/dds_discovery.xml
-ENV FASTRTPS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
+ENV FASTDDS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
 
 # Default bridge topic map (/clock). Additive: more topics append here (FR-E2).
 COPY config/ros_gz_bridge.yaml /etc/uberos/ros_gz_bridge.yaml

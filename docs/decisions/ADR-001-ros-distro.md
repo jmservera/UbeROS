@@ -33,7 +33,7 @@ falling back to **Jazzy Jalisco** is a one-line change with no other edits.
 
 - Longest support horizon if SPIKE-A passes.
 - If SPIKE-A P2/P4 fail, either install the missing packages from source or set
-  `ROS_DISTRO=ionic` and `GZ_RELEASE=harmonic`.
+  `ROS_DISTRO=jazzy` and `GZ_RELEASE=harmonic`.
 - SPIKE-A results must be recorded in this ADR before any image is relied upon.
 
 ## SPIKE-A results

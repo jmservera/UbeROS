@@ -1,9 +1,17 @@
-# UbeROS
+---
+title: UbeROS
+description: Browser-accessible ROS development and simulation environment running on Docker Compose.
+author: UbeROS Team
+ms.date: 2026-07-23
+ms.topic: overview
+---
+
+## UbeROS
 
 > A browser-accessible ROS development and simulation environment on Docker Compose.
 
-UbeROS delivers a complete, containerized ROS 2 workspace — physics simulator,
-browser code editor, terminals, and a canvas window manager — reachable from a
+UbeROS delivers a complete, containerized ROS 2 workspace, physics simulator,
+browser code editor, terminals, and a canvas window manager, reachable from a
 standard web browser with no local install beyond Docker.
 
 ![Screenshot of the UbeROS window manager canvas with four panels: Simulator, Terminal, Code Editor, and ROS Status](docs/images/screenshot.png)
@@ -28,6 +36,12 @@ To stop (volumes are preserved):
 
 ```bash
 docker compose down
+```
+
+To rebuild the full stack and run tests in one line from the repository root:
+
+```bash
+docker compose down && docker compose build --parallel && docker compose up -d --remove-orphans && npm --prefix tests test
 ```
 
 > **Warning:** `docker compose down -v` deletes the named volumes, including your
@@ -110,14 +124,14 @@ NVIDIA (Linux + NVIDIA Container Toolkit):
 docker compose -f compose.yaml -f compose.override.gpu.yaml up
 ```
 
-Intel iGPU/dGPU (native Linux, `/dev/dri` passthrough — see
+Intel iGPU/dGPU (native Linux, `/dev/dri` passthrough, see
 [docs/specs/03-intel-openvino-research.md](docs/specs/03-intel-openvino-research.md)):
 
 ```bash
 docker compose -f compose.yaml -f compose.override.intel.yaml up
 ```
 
-Windows (Docker Desktop / WSL2) — the GPU is exposed as `/dev/dxg`, not
+Windows (Docker Desktop / WSL2): the GPU is exposed as `/dev/dxg`, not
 `/dev/dri`, so use the WSL overlay (vendor-neutral: Intel/AMD/NVIDIA):
 
 ```bash
@@ -148,7 +162,7 @@ If a browser blocks clipboard access, use the keyboard shortcut again after gran
 ## Security
 
 Authentication is off by default for localhost. Before any non-localhost
-exposure, enable it (NFR N-05) — no code edits required:
+exposure, enable it (NFR N-05) with no code edits:
 
 ```bash
 htpasswd -c config/nginx/.htpasswd admin
