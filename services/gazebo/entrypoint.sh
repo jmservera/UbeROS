@@ -41,6 +41,7 @@ BRIDGE_CONFIG="${UBEROS_BRIDGE_CONFIG:-/etc/uberos/ros_gz_bridge.yaml}"
 # `ros2 run`: this headless image installs only ros-gz-bridge (no ros2cli), so
 # the `ros2` CLI plugin is not present. The bridge reads the YAML topic map and
 # registers on the ROS graph through the discovery server (env from compose).
+# Bridge may start before `gz sim` advertises /clock; this is intentional (it reconnects when /clock appears).
 "/opt/ros/${ROS_DISTRO}/lib/ros_gz_bridge/parameter_bridge" \
     --ros-args -p "config_file:=${BRIDGE_CONFIG}" &
 BRIDGE_PID=$!
