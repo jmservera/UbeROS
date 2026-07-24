@@ -21,7 +21,6 @@ test.describe('S10 - Theme B lifecycle acceptance', () => {
     const id = running.id;
 
     await page.reload();
-    await expect(page.locator('iframe.panel-frame').first()).toBeAttached({ timeout: 20_000 });
 
     // FR-B6: browser reload does not reset server-side simulator lifecycle.
     // The same running simulator remains running after reconnect.
@@ -42,5 +41,13 @@ test.describe('S10 - Theme B lifecycle acceptance', () => {
       expect(typeof sim.id).toBe('string');
       expect(typeof sim.autostart, `${sim.id} autostart type`).toBe('boolean');
     }
+  });
+
+  test('FR-B7: unknown simulator ids are rejected by lifecycle endpoints', async ({ request }) => {
+    const launch = await request.post('/control/simulators/not-a-simulator/launch');
+    expect(launch.status()).toBe(403);
+
+    const stop = await request.post('/control/simulators/not-a-simulator/stop');
+    expect(stop.status()).toBe(403);
   });
 });

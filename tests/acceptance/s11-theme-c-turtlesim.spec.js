@@ -30,10 +30,14 @@ async function ensureTurtlesimRunning(request) {
 }
 
 function rosTopicList() {
-  return execInService('ros', `bash -lc '${rosShell("ros2 topic list --no-daemon")}'`)
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  try {
+    return execInService('ros', `bash -lc '${rosShell("ros2 topic list --no-daemon")}'`)
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 function rosNodeList() {

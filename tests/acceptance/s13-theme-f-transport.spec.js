@@ -18,7 +18,18 @@ test.describe('S13 - Theme F transport deterministic evidence', () => {
     expect(gzweb.status()).toBe(200);
 
     const wsHandshake = await request.get('/gzweb/ws/');
-    expect([400, 404, 426]).toContain(wsHandshake.status());
+    // Preferred evidence is an explicit websocket/proxy status from nginx
+    // (400/426/502). Some stacks can still return 404 on plain HTTP GET to the
+    // websocket path, so in that case require an end-to-end gzweb connection to
+    // prove the routed websocket path is functional.
+    const wsStatus = wsHandshake.status();
+    if (wsStatus === 404) {
+      await page.goto('/gzweb/');
+      await expect(page.locator('#stream-status')).toHaveText(/connected/i, { timeout: 30_000 });
+      await expect(page.locator('#state')).toHaveText(/connected/i, { timeout: 30_000 });
+    } else {
+      expect([400, 426, 502]).toContain(wsStatus);
+    }
 
     const retiredNoVnc = await request.get('/sim/gazebo/novnc/', { maxRedirects: 0 });
     expect([200, 404, 502]).toContain(retiredNoVnc.status());

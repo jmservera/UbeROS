@@ -249,13 +249,13 @@ async function shouldRunAutostartReconcile() {
   } catch {
     // Missing stamp means this stack instance has not reconciled yet.
   }
-  try {
-    await mkdir(dirname(AUTOSTART_STAMP_FILE), { recursive: true });
-    await writeFile(AUTOSTART_STAMP_FILE, stamp, 'utf8');
-  } catch {
-    // Best effort: if stamping fails, do not block lifecycle reconciliation.
-  }
   return true;
+}
+
+async function markAutostartReconciled() {
+  const stamp = STACK_INSTANCE || PROJECT;
+  await mkdir(dirname(AUTOSTART_STAMP_FILE), { recursive: true });
+  await writeFile(AUTOSTART_STAMP_FILE, stamp, 'utf8');
 }
 
 // Configurable auto-start at stack up (FR-B8). The `simulators` compose profile
@@ -266,7 +266,7 @@ async function shouldRunAutostartReconcile() {
 // the profile left them down. Runs once shortly after boot to let compose finish
 // creating containers; failures are swallowed so the menu still works manually.
 async function reconcileAutostart() {
-  if (!(await shouldRunAutostartReconcile())) return;
+  if (!(await shouldRunAutostartReconcile())) return true;
   let containers;
   try {
     containers = await listProjectContainers();
@@ -291,7 +291,14 @@ async function reconcileAutostart() {
       // One simulator failing to reconcile must not block the others (NFR-REL-2).
     }
   }
-  return !pendingContainers;
+  if (pendingContainers) return false;
+  try {
+    await markAutostartReconciled();
+  } catch {
+    // If stamping fails, retry so this stack instance can converge to run-once.
+    return false;
+  }
+  return true;
 }
 
 function scheduleAutostartReconcile() {
