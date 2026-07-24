@@ -36,6 +36,8 @@ const DOCKER_API = process.env.DOCKER_API_VERSION || 'v1.43';
 const PROJECT = process.env.UBEROS_PROJECT || 'uberos';
 const PORT = Number(process.env.CONTROL_PORT || 9000);
 const AUTH = (process.env.UBEROS_AUTH || 'off').toLowerCase();
+const STACK_INSTANCE = process.env.UBEROS_STACK_INSTANCE || '';
+const AUTOSTART_STAMP_FILE = process.env.UBEROS_AUTOSTART_STAMP_FILE || '/data/autostart.reconciled';
 
 // Allowlist of compose services the menu may reset. Anything not in this set is
 // rejected outright — the control plane can never touch itself, the proxy, or
@@ -232,6 +234,30 @@ async function stopSimulator(id) {
   if (status !== 204 && status !== 304) throw new Error(`docker stop failed (${status})`);
 }
 
+async function safeContainerVerb(containerId, verb) {
+  const { status } = await dockerRequest('POST', `/containers/${containerId}/${verb}`);
+  if (status !== 204 && status !== 304) {
+    throw new Error(`docker ${verb} failed (${status})`);
+  }
+}
+
+async function shouldRunAutostartReconcile() {
+  const stamp = STACK_INSTANCE || PROJECT;
+  try {
+    const prior = (await readFile(AUTOSTART_STAMP_FILE, 'utf8')).trim();
+    if (prior === stamp) return false;
+  } catch {
+    // Missing stamp means this stack instance has not reconciled yet.
+  }
+  try {
+    await mkdir(dirname(AUTOSTART_STAMP_FILE), { recursive: true });
+    await writeFile(AUTOSTART_STAMP_FILE, stamp, 'utf8');
+  } catch {
+    // Best effort: if stamping fails, do not block lifecycle reconciliation.
+  }
+  return true;
+}
+
 // Configurable auto-start at stack up (FR-B8). The `simulators` compose profile
 // creates (and starts) every installed simulator; this best-effort reconcile
 // then enforces each registry entry's `autostart` intent using only the same
@@ -240,26 +266,55 @@ async function stopSimulator(id) {
 // the profile left them down. Runs once shortly after boot to let compose finish
 // creating containers; failures are swallowed so the menu still works manually.
 async function reconcileAutostart() {
+  if (!(await shouldRunAutostartReconcile())) return;
   let containers;
   try {
     containers = await listProjectContainers();
   } catch {
-    return; // Docker unreachable at boot — the menu can still launch/stop later.
+    return false; // Docker unreachable at boot — try again shortly.
   }
+  let pendingContainers = false;
   for (const sim of installedSimulators()) {
     const container = containers.get(sim.service);
-    if (!container) continue; // profile inactive for this simulator; nothing to do.
+    if (!container) {
+      pendingContainers = true;
+      continue; // simulator container not created yet; retry within this boot.
+    }
     const running = container.State === 'running';
     try {
       if (sim.autostart && !running) {
-        await dockerRequest('POST', `/containers/${container.Id}/start`);
+        await safeContainerVerb(container.Id, 'start');
       } else if (!sim.autostart && running) {
-        await dockerRequest('POST', `/containers/${container.Id}/stop`);
+        await safeContainerVerb(container.Id, 'stop');
       }
     } catch {
       // One simulator failing to reconcile must not block the others (NFR-REL-2).
     }
   }
+  return !pendingContainers;
+}
+
+function scheduleAutostartReconcile() {
+  const retries = Math.max(1, Number(process.env.UBEROS_AUTOSTART_RETRIES || 5));
+  const retryMs = Math.max(250, Number(process.env.UBEROS_AUTOSTART_RETRY_MS || 1500));
+  let attempts = 0;
+
+  const run = () => {
+    attempts += 1;
+    reconcileAutostart()
+      .then((done) => {
+        if (!done && attempts < retries) {
+          setTimeout(run, retryMs);
+        }
+      })
+      .catch(() => {
+        if (attempts < retries) {
+          setTimeout(run, retryMs);
+        }
+      });
+  };
+
+  run();
 }
 
 async function serviceStatus() {
@@ -408,6 +463,6 @@ server.listen(PORT, () => {
   // Honor per-simulator autostart intent once compose has had a moment to create
   // the simulator containers (FR-B8). Best-effort; never blocks serving.
   setTimeout(() => {
-    reconcileAutostart().catch(() => {});
+    scheduleAutostartReconcile();
   }, Number(process.env.UBEROS_AUTOSTART_DELAY_MS || 3000));
 });

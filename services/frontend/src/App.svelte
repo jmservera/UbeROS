@@ -52,7 +52,7 @@
   // Installed simulators + live state, data-driven from GET /control/simulators
   // (FR-A3). Launch/stop actions and per-simulator lifecycle land in Theme B.
   let simulators = []; // [{ id, label, service, transport, panelRoute, ..., state }]
-  let simBusy = null; // id of the simulator whose launch/stop is in flight
+  let simBusy = new Set(); // simulator ids whose launch/stop is in flight
   let simPollTimer = null; // polls getSimulators() while the menu is open (FR-B1)
   let simulatorsLoading = false;
   let simulatorsLoaded = false;
@@ -473,7 +473,8 @@
   // launching one never disturbs another (FR-B5). Polls getSimulators() after a
   // beat to reflect the starting → running transition (NFR-PERF-2).
   async function launchSim(id) {
-    simBusy = id;
+    if (simBusy.has(id)) return;
+    simBusy = new Set([...simBusy, id]);
     try {
       await launchSimulator(id);
       const entry = simulators.find((s) => s.id === id);
@@ -482,7 +483,9 @@
     } catch {
       flash(`Failed to launch ${id}`);
     } finally {
-      simBusy = null;
+      const nextBusy = new Set(simBusy);
+      nextBusy.delete(id);
+      simBusy = nextBusy;
       setTimeout(refreshSimulators, 2500);
     }
   }
@@ -490,14 +493,17 @@
   // Stop a simulator (FR-B3): halt its container server-side. The panel is left
   // in place (its stream simply goes idle); reopening/relaunching reconnects.
   async function stopSim(id) {
-    simBusy = id;
+    if (simBusy.has(id)) return;
+    simBusy = new Set([...simBusy, id]);
     try {
       await stopSimulator(id);
       flash(`Stopping ${simulators.find((s) => s.id === id)?.label ?? id}…`);
     } catch {
       flash(`Failed to stop ${id}`);
     } finally {
-      simBusy = null;
+      const nextBusy = new Set(simBusy);
+      nextBusy.delete(id);
+      simBusy = nextBusy;
       setTimeout(refreshSimulators, 2500);
     }
   }
@@ -841,12 +847,12 @@
                 <span class="svc-name">{sim.label}</span>
                 <span class="sim-state">{sim.state}</span>
                 {#if sim.state === 'running' || sim.state === 'starting'}
-                  <button class="svc-reset" disabled={simBusy === sim.id} on:click={() => stopSim(sim.id)}>
-                    {simBusy === sim.id ? '…' : 'Stop'}
+                  <button class="svc-reset" disabled={simBusy.has(sim.id)} on:click={() => stopSim(sim.id)}>
+                    {simBusy.has(sim.id) ? '…' : 'Stop'}
                   </button>
                 {:else}
-                  <button class="svc-reset" disabled={simBusy === sim.id} on:click={() => launchSim(sim.id)}>
-                    {simBusy === sim.id ? '…' : 'Launch'}
+                  <button class="svc-reset" disabled={simBusy.has(sim.id)} on:click={() => launchSim(sim.id)}>
+                    {simBusy.has(sim.id) ? '…' : 'Launch'}
                   </button>
                 {/if}
               </div>

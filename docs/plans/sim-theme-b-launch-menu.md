@@ -21,8 +21,15 @@
 - `compose.yaml` (`simulators` profile)
 
 ## Tasks
-- [ ] Research: Docker start/stop via existing socket client; reconnect semantics
-- [ ] Plan: endpoints + menu state machine + autostart config
-- [ ] Implement: lifecycle endpoints, menu, reconnect, autostart
-- [ ] Tests: allowlist 403, concurrent state, reload reconnect
-- [ ] Acceptance (PRD §7.2)
+- [x] Research: Docker start/stop via existing socket client; reconnect semantics
+- [x] Plan: endpoints + menu state machine + autostart config
+- [x] Implement: lifecycle endpoints, menu, reconnect, autostart
+- [x] Tests: allowlist 403, concurrent state, reload reconnect
+- [x] Acceptance (PRD §7.2)
+
+## Acceptance evidence (PRD §7.2)
+
+* FR-B2/B3/B7 evidence: simulator lifecycle endpoints and allowlist enforcement in `services/control/server.js`.
+* FR-B4/B5 evidence: transport-routed simulator panels and independent busy-state tracking in `services/frontend/src/lib/panels.js` and `services/frontend/src/App.svelte`.
+* FR-B6 evidence: reload reconnect and running-state persistence validated by `tests/acceptance/s10-theme-b-lifecycle.spec.js`.
+* FR-B8 evidence: autostart override matrix validated by `tests/acceptance/s10-theme-b-lifecycle.spec.js` plus default env wiring in `.env.example` and `compose.yaml`.

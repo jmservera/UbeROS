@@ -143,7 +143,16 @@ export function buildSimulatorPanelForEntry(el, entry) {
 // if state is somehow absent.
 export function buildSimulatorPanelFromState(el, container) {
   const entry = container?.initialState ?? {};
-  el.appendChild(makeIframe(simulatorStreamUrl(entry)));
+  const fallbackRoute =
+    typeof entry.id === 'string' && entry.id.trim()
+      ? `/sim/${entry.id.trim()}/`
+      : '/';
+  const resolvedEntry = {
+    ...entry,
+    panelRoute: entry.panelRoute ?? fallbackRoute,
+    transport: entry.transport ?? 'vnc',
+  };
+  el.appendChild(makeIframe(simulatorStreamUrl(resolvedEntry)));
 }
 
 // Resolve a stable tmux session id for a terminal panel and persist it in the

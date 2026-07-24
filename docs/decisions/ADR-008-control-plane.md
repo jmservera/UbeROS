@@ -1,7 +1,7 @@
 # ADR-008: Operational Control Plane and Docker Socket
 
-- Status: Accepted — Implemented (restart + health; socket-proxy hardening pending, AE-S1)
-- Implementation: `services/control/server.js` (list + restart only, exact-match allowlist); internal `web_net`, never host-published
+- Status: Accepted — Implemented (restart + health + simulator lifecycle; socket-proxy hardening pending, AE-S1)
+- Implementation: `services/control/server.js` (list + restart + simulator start/stop with exact-match allowlists); internal `web_net`, never host-published
 - Date: 2026-07-19
 - Deciders: jmservera (product), Trinity, Morpheus (technical)
 - Related: PRD Theme C/Theme G (BR-007, FR-G3/FR-G4), BRD BR-RI-1..4, ADR-003 (terminal), Section 18 AE-S1
@@ -23,12 +23,15 @@ Docker socket and exposes a strictly-scoped HTTP API behind the proxy at
 `/control/`:
 
 - `GET /config`, `GET /services`, `GET /health`, and `POST /services/{name}/restart`.
-- Only two Docker operations are ever issued: **list** containers (filtered to
-  this compose project) and **restart** a container by id. No exec, create, or
+- `GET /simulators`, `POST /simulators/{id}/launch`, and `POST /simulators/{id}/stop` for installed simulators.
+- Only Docker operations used are: **list** containers (filtered to this compose
+  project) and **restart/start/stop** by container id. No exec, create, or
   arbitrary container control.
 - Restart is gated by an **allowlist** (`UBEROS_SERVICES`, default
   `ros,simulator,vnc,editor,frontend`); the name is matched exactly and used
   only as a Docker label filter, never interpolated into a shell.
+- Simulator launch/stop is gated by a separate allowlist derived from installed
+  simulator registry entries, and unknown ids are rejected.
 - The control plane, `proxy`, and `discovery-server` are intentionally excluded
   from the allowlist so it can never restart itself or the ingress.
 - The service is on the internal `web_net` only and is never host-published;
