@@ -42,7 +42,7 @@ RUN chmod +x /entrypoint.sh
 ENV DISPLAY=:99
 ENV ROS_DOMAIN_ID=42
 ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-ENV FASTRTPS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
+ENV FASTDDS_DEFAULT_PROFILES_FILE=/etc/ros/dds_discovery.xml
 
 # noVNC (6080) and VNC (5900) are reachable only through the proxy; never
 # host-published (INV-04, WP-13 security baseline).
