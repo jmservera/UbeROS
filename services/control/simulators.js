@@ -57,15 +57,11 @@ export function installedSimulators() {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  const autostartEnv = (process.env.UBEROS_SIMULATORS_AUTOSTART || '').trim();
-  const autostartSet = autostartEnv
-    ? new Set(
-        autostartEnv
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      )
-    : null;
+  const autostartTokens = (process.env.UBEROS_SIMULATORS_AUTOSTART || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const autostartSet = autostartTokens.length ? new Set(autostartTokens) : null;
   return ids
     .map((id) => CATALOG[id])
     .filter((sim) => sim && sim.enabled)
