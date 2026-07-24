@@ -13,9 +13,13 @@
 //   - Only an ALLOWLIST of service names may ever be restarted; the name is
 //     matched exactly against that list and used only as a Docker API label
 //     filter — it is never interpolated into a shell.
-//   - Only two Docker operations are ever issued: list containers (filtered to
-//     this compose project) and restart a container by id. No exec, no create,
-//     no arbitrary container control.
+//   - Simulator launch/stop (Theme B) is restricted to a SEPARATE allowlist
+//     derived from the simulator registry (installedSimulators()); a launch/stop
+//     id is validated against that registry and then mapped to a container id —
+//     it never widens the restart allowlist and is never shelled out.
+//   - Only these Docker operations are ever issued: list containers (filtered to
+//     this compose project) and restart/start/stop a container by id. No exec,
+//     no create, no arbitrary container control.
 //   - Settings writes are validated against a strict whitelist (unknown keys
 //     dropped, values type/enum-checked) and go only to a single fixed file
 //     path — no path traversal, no shell.
@@ -179,6 +183,85 @@ async function restartService(name) {
   if (status !== 204) throw new Error(`docker restart failed (${status})`);
 }
 
+// --- Simulator lifecycle (Theme B, FR-B2/B3/B7) ------------------------------
+// Start/stop is restricted to an allowlist DERIVED FROM THE REGISTRY, not the
+// UBEROS_SERVICES restart list: only the compose services backing an installed
+// simulator (installedSimulators()) are ever eligible. The public {id} is the
+// simulator's registry id (e.g. `gazebo`), validated against the registry; a
+// match maps to the registry's compose `service`, which is resolved to a live
+// container id. We then issue ONLY start/stop by container id — never create,
+// never exec, and never a shell. This mirrors restartService()'s hardening.
+async function resolveSimulatorContainer(id) {
+  const sim = installedSimulators().find((s) => s.id === id);
+  if (!sim) {
+    // Unknown or disabled simulator id — rejected exactly like a non-allowlisted
+    // restart target (FR-B7), so the socket surface can never be widened by a
+    // crafted id.
+    const err = new Error('simulator not allowed');
+    err.statusCode = 403;
+    throw err;
+  }
+  const containers = await listProjectContainers();
+  const container = containers.get(sim.service);
+  if (!container) {
+    // The registry entry is valid but its container does not exist — the
+    // `simulators` compose profile is inactive (FR-D/FR-B8). Distinct 404 so the
+    // menu can tell "not installed at runtime" from "disallowed".
+    const err = new Error('simulator not created');
+    err.statusCode = 404;
+    throw err;
+  }
+  return { sim, container };
+}
+
+// Start an installed simulator's container (FR-B2). Docker returns 204 when the
+// container is started and 304 when it was already running; both are success so
+// a double-launch is idempotent.
+async function startSimulator(id) {
+  const { container } = await resolveSimulatorContainer(id);
+  const { status } = await dockerRequest('POST', `/containers/${container.Id}/start`);
+  if (status !== 204 && status !== 304) throw new Error(`docker start failed (${status})`);
+}
+
+// Stop an installed simulator's container (FR-B3). 204 = stopped, 304 = already
+// stopped; both succeed. `restart: unless-stopped` will NOT resurrect a
+// container stopped this way, so a menu Stop stays stopped until a Launch.
+async function stopSimulator(id) {
+  const { container } = await resolveSimulatorContainer(id);
+  const { status } = await dockerRequest('POST', `/containers/${container.Id}/stop`);
+  if (status !== 204 && status !== 304) throw new Error(`docker stop failed (${status})`);
+}
+
+// Configurable auto-start at stack up (FR-B8). The `simulators` compose profile
+// creates (and starts) every installed simulator; this best-effort reconcile
+// then enforces each registry entry's `autostart` intent using only the same
+// start/stop verbs: autostart-off simulators are stopped so they stay stopped
+// until launched from the menu, and autostart-on simulators are (re)started if
+// the profile left them down. Runs once shortly after boot to let compose finish
+// creating containers; failures are swallowed so the menu still works manually.
+async function reconcileAutostart() {
+  let containers;
+  try {
+    containers = await listProjectContainers();
+  } catch {
+    return; // Docker unreachable at boot — the menu can still launch/stop later.
+  }
+  for (const sim of installedSimulators()) {
+    const container = containers.get(sim.service);
+    if (!container) continue; // profile inactive for this simulator; nothing to do.
+    const running = container.State === 'running';
+    try {
+      if (sim.autostart && !running) {
+        await dockerRequest('POST', `/containers/${container.Id}/start`);
+      } else if (!sim.autostart && running) {
+        await dockerRequest('POST', `/containers/${container.Id}/stop`);
+      }
+    } catch {
+      // One simulator failing to reconcile must not block the others (NFR-REL-2).
+    }
+  }
+}
+
 async function serviceStatus() {
   let containers = new Map();
   try {
@@ -294,6 +377,25 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { restarted: name });
     }
 
+    // POST /simulators/{id}/launch — start an installed simulator (FR-B2). The
+    // id is allowlisted against the registry (403 if unknown), and its container
+    // must exist (404 if the `simulators` profile is inactive).
+    const simLaunch = path.match(/^\/simulators\/([A-Za-z0-9_.-]+)\/launch$/);
+    if (req.method === 'POST' && simLaunch) {
+      const id = simLaunch[1];
+      await startSimulator(id);
+      return sendJson(res, 200, { launched: id });
+    }
+
+    // POST /simulators/{id}/stop — stop an installed simulator (FR-B3), same
+    // registry-derived allowlist and error contract as launch.
+    const simStop = path.match(/^\/simulators\/([A-Za-z0-9_.-]+)\/stop$/);
+    if (req.method === 'POST' && simStop) {
+      const id = simStop[1];
+      await stopSimulator(id);
+      return sendJson(res, 200, { stopped: id });
+    }
+
     return sendJson(res, 404, { error: 'not found' });
   } catch (err) {
     return sendJson(res, err.statusCode || 500, { error: err.message || 'internal error' });
@@ -303,4 +405,9 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`uberos control listening on :${PORT} (services: ${ALLOWED_SERVICES.join(', ')})`);
+  // Honor per-simulator autostart intent once compose has had a moment to create
+  // the simulator containers (FR-B8). Best-effort; never blocks serving.
+  setTimeout(() => {
+    reconcileAutostart().catch(() => {});
+  }, Number(process.env.UBEROS_AUTOSTART_DELAY_MS || 3000));
 });

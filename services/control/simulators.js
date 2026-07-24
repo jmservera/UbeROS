@@ -43,13 +43,34 @@ const CATALOG = Object.freeze({
 // the resettable-service allowlist in server.js. Defaults to the whole catalog.
 // Unknown ids are dropped (allowlist mindset) and only `enabled` entries are
 // ever exposed, so a disabled simulator stays invisible even if listed.
+//
+// Auto-start (FR-B8) is configurable without editing this catalog: set
+// UBEROS_SIMULATORS_AUTOSTART to a comma-separated id list to override which
+// installed simulators auto-start at stack up. When it is unset OR empty, each
+// entry's catalog `autostart` flag applies (default: both Gazebo and Turtlesim
+// on). Providing a non-empty subset (e.g. `turtlesim`) auto-starts only those;
+// the rest are created but left stopped until launched from the menu. An empty
+// value counts as "no override" so the compose default (`${VAR:-}`) preserves
+// the both-on default rather than silently auto-starting none.
 export function installedSimulators() {
   const ids = (process.env.UBEROS_SIMULATORS || Object.keys(CATALOG).join(','))
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+  const autostartEnv = (process.env.UBEROS_SIMULATORS_AUTOSTART || '').trim();
+  const autostartSet = autostartEnv
+    ? new Set(
+        autostartEnv
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      )
+    : null;
   return ids
     .map((id) => CATALOG[id])
     .filter((sim) => sim && sim.enabled)
-    .map((sim) => ({ ...sim }));
+    .map((sim) => ({
+      ...sim,
+      autostart: autostartSet ? autostartSet.has(sim.id) : sim.autostart,
+    }));
 }

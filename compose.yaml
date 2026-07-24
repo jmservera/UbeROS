@@ -210,6 +210,13 @@ services:
     environment:
       # Compose project name used to scope Docker API queries (matches `name:`).
       UBEROS_PROJECT: ${COMPOSE_PROJECT_NAME:-uberos}
+      # Installed simulators exposed by the registry (FR-A1) and which of them
+      # auto-start at stack up (FR-B8). UBEROS_SIMULATORS defaults to the whole
+      # catalog; UBEROS_SIMULATORS_AUTOSTART, when unset, honors each entry's
+      # registry `autostart` flag (default both on). The control plane starts/
+      # stops these on demand and reconciles autostart intent at boot.
+      UBEROS_SIMULATORS: ${UBEROS_SIMULATORS:-gazebo,turtlesim}
+      UBEROS_SIMULATORS_AUTOSTART: ${UBEROS_SIMULATORS_AUTOSTART:-}
       # Services the system menu is allowed to restart (BR-007). The control
       # plane itself, the proxy, and discovery-server are intentionally excluded.
       UBEROS_SERVICES: ${UBEROS_SERVICES:-ros,gazebo,turtlesim,editor,frontend}

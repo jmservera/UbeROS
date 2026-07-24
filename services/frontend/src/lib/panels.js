@@ -134,6 +134,18 @@ export function buildSimulatorPanelForEntry(el, entry) {
   el.appendChild(makeIframe(simulatorStreamUrl(entry)));
 }
 
+// Panel content builder used when a launched simulator panel is rebuilt from
+// Golden Layout component state — on pop-out, dock-back, and browser reload
+// (FR-B4/FR-B6). The registry fields the panel needs (transport, panelRoute)
+// ride in the panel's component state, so the iframe reconnects to the same
+// stable stream URL without re-querying the control plane and WITHOUT
+// restarting the server-side simulator. Falls back to the id-namespaced route
+// if state is somehow absent.
+export function buildSimulatorPanelFromState(el, container) {
+  const entry = container?.initialState ?? {};
+  el.appendChild(makeIframe(simulatorStreamUrl(entry)));
+}
+
 // Resolve a stable tmux session id for a terminal panel and persist it in the
 // Golden Layout component state. The id travels with the panel across docking,
 // saved layouts, and pop-outs, so the /terminal/?arg=<id> connection always

@@ -8,12 +8,13 @@
     buildTerminalPanel,
     buildEditorPanel,
     buildRosStatusPanel,
+    buildSimulatorPanelFromState,
     defaultLayout,
     PANEL_DEFS,
     LAYOUT_PRESETS,
     LAYOUTS,
   } from './lib/panels.js';
-  import { getConfig, getServices, getSimulators, restartService, getSettings, saveSettings } from './lib/control.js';
+  import { getConfig, getServices, getSimulators, restartService, launchSimulator, stopSimulator, getSettings, saveSettings } from './lib/control.js';
 
   const LAYOUT_KEY = 'uberos.layout.v1';
   const LAYOUT_KEYS = Object.keys(LAYOUTS);
@@ -49,8 +50,10 @@
   let services = []; // [{ name, state, health }]
   let serviceBusy = null;
   // Installed simulators + live state, data-driven from GET /control/simulators
-  // (FR-A3). Read-only in Theme A; launch/stop actions land in Theme B.
+  // (FR-A3). Launch/stop actions and per-simulator lifecycle land in Theme B.
   let simulators = []; // [{ id, label, service, transport, panelRoute, ..., state }]
+  let simBusy = null; // id of the simulator whose launch/stop is in flight
+  let simPollTimer = null; // polls getSimulators() while the menu is open (FR-B1)
   let simulatorsLoading = false;
   let simulatorsLoaded = false;
   let simulatorsError = '';
@@ -438,6 +441,67 @@
     if (!result.ok) simulatorsError = result.error;
   }
 
+  // Open (or focus) a simulator's panel, routed by transport (FR-B4). Each
+  // simulator gets a namespaced `sim:<id>` Golden Layout component so multiple
+  // simulators coexist independently (FR-B5); the registry fields the panel
+  // needs (transport, panelRoute) are stored in component state so the panel
+  // rebuilds and reconnects on pop-out / dock-back / reload (FR-B6) without
+  // re-querying the control plane. Re-launching a running sim just focuses the
+  // existing panel, which reconnects to the still-running server-side stream.
+  function openSimulatorPanel(entry) {
+    const type = `sim:${entry.id}`;
+    const existing = firstComponent(type);
+    if (existing) {
+      existing.focus?.();
+    } else {
+      layout.addComponent(
+        type,
+        {
+          id: entry.id,
+          label: entry.label,
+          transport: entry.transport,
+          panelRoute: entry.panelRoute,
+        },
+        entry.label
+      );
+    }
+    refreshOpenPanels();
+  }
+
+  // Launch a simulator (FR-B2): start its container server-side, then open the
+  // matching panel so the running sim is visible. Independent per simulator, so
+  // launching one never disturbs another (FR-B5). Polls getSimulators() after a
+  // beat to reflect the starting → running transition (NFR-PERF-2).
+  async function launchSim(id) {
+    simBusy = id;
+    try {
+      await launchSimulator(id);
+      const entry = simulators.find((s) => s.id === id);
+      if (entry) openSimulatorPanel(entry);
+      flash(`Launching ${entry?.label ?? id}…`);
+    } catch {
+      flash(`Failed to launch ${id}`);
+    } finally {
+      simBusy = null;
+      setTimeout(refreshSimulators, 2500);
+    }
+  }
+
+  // Stop a simulator (FR-B3): halt its container server-side. The panel is left
+  // in place (its stream simply goes idle); reopening/relaunching reconnects.
+  async function stopSim(id) {
+    simBusy = id;
+    try {
+      await stopSimulator(id);
+      flash(`Stopping ${simulators.find((s) => s.id === id)?.label ?? id}…`);
+    } catch {
+      flash(`Failed to stop ${id}`);
+    } finally {
+      simBusy = null;
+      setTimeout(refreshSimulators, 2500);
+    }
+  }
+
   // Reset/restart an individual service without a full stack restart (BR-007).
   async function restart(name) {
     serviceBusy = name;
@@ -466,11 +530,30 @@
   function toggleMenu(name) {
     activeMenu = activeMenu === name ? null : name;
     if (activeMenu === 'services') refreshServices();
-    if (activeMenu === 'simulators') refreshSimulators();
+    if (activeMenu === 'simulators') startSimPolling();
+    else stopSimPolling();
   }
 
   function closeMenu() {
     activeMenu = null;
+    stopSimPolling();
+  }
+
+  // While the Simulators menu is open, poll getSimulators() so a launch/stop
+  // (from here or elsewhere) reflects promptly (FR-B1, NFR-PERF-2). Stops as
+  // soon as the menu closes so the SPA is idle otherwise, mirroring how the
+  // Services menu refreshes on demand rather than continuously.
+  function startSimPolling() {
+    refreshSimulators();
+    stopSimPolling();
+    simPollTimer = setInterval(refreshSimulators, 2500);
+  }
+
+  function stopSimPolling() {
+    if (simPollTimer) {
+      clearInterval(simPollTimer);
+      simPollTimer = null;
+    }
   }
 
   function onWindowClick(event) {
@@ -497,7 +580,16 @@
     layout = new GoldenLayout(
       container,
       (componentContainer, itemConfig) => {
-        const build = factories[itemConfig.componentType];
+        // Built-in panels resolve from the static factories map; launched
+        // simulator panels use a namespaced `sim:<id>` componentType (FR-B4)
+        // and rebuild from component state so they reconnect on pop-out,
+        // dock-back, and reload (FR-B6) without re-querying the control plane.
+        const type = itemConfig.componentType;
+        const build =
+          factories[type] ||
+          (typeof type === 'string' && type.startsWith('sim:')
+            ? buildSimulatorPanelFromState
+            : null);
         if (build) {
           const cleanup = build(componentContainer.element, componentContainer);
           if (typeof cleanup === 'function') {
@@ -600,6 +692,12 @@
     // Apply even in pop-out sub-windows so the theme stays consistent.
     loadSettings();
 
+    // Reflect simulators that are already running server-side at load, so a
+    // browser reload shows their live state in the menu (FR-B6). The panels
+    // themselves reconnect via Golden Layout's restored component state; no
+    // running simulator is disturbed by a reload.
+    if (!isSub) refreshSimulators();
+
     const onResize = () => layout.updateSize();
     window.addEventListener('resize', onResize);
     window.addEventListener('click', onWindowClick, true);
@@ -628,6 +726,7 @@
       container.removeEventListener('touchstart', startDrag, true);
       endDrag();
       clearTimeout(statusTimer);
+      stopSimPolling();
       channel?.close();
       layout.destroy();
       for (const cleanup of panelCleanups.values()) cleanup();
@@ -715,8 +814,9 @@
         {/if}
       </div>
 
-      <!-- Simulators: data-driven from GET /control/simulators (FR-A3). Read-only
-           in Theme A — launch/stop actions arrive in Theme B. -->
+      <!-- Simulators: data-driven from GET /control/simulators (FR-A3). Launch/
+           stop drives the server-side lifecycle (FR-B1..B6); each simulator is
+           tracked and controlled independently (FR-B5). -->
       <div class="menu-group">
         <button
           class="menu-button"
@@ -740,8 +840,15 @@
                 <span class="status-dot {sim.state === 'running' ? 'ok' : sim.state === 'failed' ? 'err' : 'warn'}"></span>
                 <span class="svc-name">{sim.label}</span>
                 <span class="sim-state">{sim.state}</span>
-                <!-- Launch/stop are Theme B; shown disabled to mark the seam. -->
-                <button class="svc-reset" disabled title="Launch/stop lands in Theme B">Launch</button>
+                {#if sim.state === 'running' || sim.state === 'starting'}
+                  <button class="svc-reset" disabled={simBusy === sim.id} on:click={() => stopSim(sim.id)}>
+                    {simBusy === sim.id ? '…' : 'Stop'}
+                  </button>
+                {:else}
+                  <button class="svc-reset" disabled={simBusy === sim.id} on:click={() => launchSim(sim.id)}>
+                    {simBusy === sim.id ? '…' : 'Launch'}
+                  </button>
+                {/if}
               </div>
             {/each}
           </div>

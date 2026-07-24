@@ -58,6 +58,20 @@ export async function restartService(name) {
   return json(`/services/${encodeURIComponent(name)}/restart`, { method: 'POST' });
 }
 
+// Launch an installed simulator (Theme B, FR-B2). Starts the simulator's
+// container server-side; the caller opens the matching panel and polls
+// getSimulators() to reflect the state transition (starting → running).
+export async function launchSimulator(id) {
+  return json(`/simulators/${encodeURIComponent(id)}/launch`, { method: 'POST' });
+}
+
+// Stop an installed simulator (Theme B, FR-B3). Halts the container server-side;
+// the sim's ROS entities disappear and the caller polls getSimulators() to
+// reflect the transition to stopped.
+export async function stopSimulator(id) {
+  return json(`/simulators/${encodeURIComponent(id)}/stop`, { method: 'POST' });
+}
+
 // System settings persisted server-side (Theme C, FR-C2). getSettings returns
 // { user, version, schemaVersion, settings }; on failure it yields empty
 // settings so the SPA falls back to its built-in defaults.
