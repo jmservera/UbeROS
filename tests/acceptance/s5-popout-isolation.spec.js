@@ -10,6 +10,16 @@ test.describe('S5 - pop-out does not terminate the workload', () => {
   test('closing a detached window keeps every service healthy', async ({ page, context }) => {
     await page.goto('/');
 
+    await expect
+      .poll(
+        () => {
+          const health = healthSnapshot();
+          return SERVICES.every((svc) => health[svc] === 'healthy');
+        },
+        { timeout: 60_000, intervals: [2000] }
+      )
+      .toBe(true);
+
     const before = healthSnapshot();
     for (const svc of SERVICES) {
       expect(before[svc], `${svc} healthy before pop-out`).toBe('healthy');

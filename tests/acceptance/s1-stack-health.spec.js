@@ -5,12 +5,21 @@ import { test, expect } from '@playwright/test';
 import { SERVICES, healthSnapshot } from '../helpers/stack.js';
 
 test.describe('S1 - stack starts without error', () => {
-  test('all seven services report healthy', () => {
-    const health = healthSnapshot();
-    for (const svc of SERVICES) {
-      expect(health[svc], `service "${svc}" should be present`).toBeDefined();
-      expect(health[svc], `service "${svc}" should be healthy`).toBe('healthy');
-    }
+  test('all seven services report healthy', async ({ request }) => {
+    // Prior tests can intentionally stop simulators; reconcile to running so
+    // this stack-health assertion remains independent and deterministic.
+    await request.post('/control/simulators/gazebo/launch');
+    await request.post('/control/simulators/turtlesim/launch');
+
+    await expect
+      .poll(
+        () => {
+          const health = healthSnapshot();
+          return SERVICES.every((svc) => health[svc] === 'healthy');
+        },
+        { timeout: 60_000, intervals: [2000] }
+      )
+      .toBe(true);
   });
 
   test('proxy /healthz returns 200 "ok"', async ({ request }) => {
