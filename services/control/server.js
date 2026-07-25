@@ -241,8 +241,14 @@ async function safeContainerVerb(containerId, verb) {
   }
 }
 
+// Stamp precedence: an explicit STACK_INSTANCE wins; otherwise the control
+// container's HOSTNAME (its container id) so reconcile runs once per container
+// creation. `docker compose down`/`up` recreates the control container (new
+// HOSTNAME) and re-runs reconcile — picking up UBEROS_SIMULATORS_AUTOSTART
+// changes — while a plain restart keeps the same HOSTNAME and stays skipped.
+// PROJECT is the last-resort fallback if HOSTNAME is somehow unset.
 async function shouldRunAutostartReconcile() {
-  const stamp = STACK_INSTANCE || PROJECT;
+  const stamp = STACK_INSTANCE || process.env.HOSTNAME || PROJECT;
   try {
     const prior = (await readFile(AUTOSTART_STAMP_FILE, 'utf8')).trim();
     if (prior === stamp) return false;
@@ -253,7 +259,7 @@ async function shouldRunAutostartReconcile() {
 }
 
 async function markAutostartReconciled() {
-  const stamp = STACK_INSTANCE || PROJECT;
+  const stamp = STACK_INSTANCE || process.env.HOSTNAME || PROJECT;
   await mkdir(dirname(AUTOSTART_STAMP_FILE), { recursive: true });
   await writeFile(AUTOSTART_STAMP_FILE, stamp, 'utf8');
 }
@@ -301,9 +307,23 @@ async function reconcileAutostart() {
   return true;
 }
 
+// Parse a bounded integer from an env var, falling back when the value is
+// unset, empty/whitespace, or non-numeric. Number('abc') is NaN and Math.max
+// propagates NaN, which would break the `attempts < retries` comparison and
+// silently disable the bounded retry loop (or, for the boot delay, collapse to
+// 0ms and run before containers exist). This keeps a bad env value from
+// disarming reconciliation.
+function boundedIntEnv(name, fallback, min) {
+  const raw = process.env[name];
+  if (raw === undefined || String(raw).trim() === '') return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.trunc(parsed));
+}
+
 function scheduleAutostartReconcile() {
-  const retries = Math.max(1, Number(process.env.UBEROS_AUTOSTART_RETRIES || 5));
-  const retryMs = Math.max(250, Number(process.env.UBEROS_AUTOSTART_RETRY_MS || 1500));
+  const retries = boundedIntEnv('UBEROS_AUTOSTART_RETRIES', 5, 1);
+  const retryMs = boundedIntEnv('UBEROS_AUTOSTART_RETRY_MS', 1500, 250);
   let attempts = 0;
 
   const run = () => {
@@ -478,5 +498,5 @@ server.listen(PORT, () => {
   // the simulator containers (FR-B8). Best-effort; never blocks serving.
   setTimeout(() => {
     scheduleAutostartReconcile();
-  }, Number(process.env.UBEROS_AUTOSTART_DELAY_MS || 3000));
+  }, boundedIntEnv('UBEROS_AUTOSTART_DELAY_MS', 3000, 0));
 });

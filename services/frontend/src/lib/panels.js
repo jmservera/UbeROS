@@ -126,9 +126,13 @@ export function buildSimulatorPanelForEntry(el, entry) {
 // if state is somehow absent.
 export function buildSimulatorPanelFromState(el, container) {
   const entry = container?.initialState ?? {};
+  // Fallback only fires for legacy panel state missing panelRoute. Use the real
+  // noVNC proxy convention (/sim/<id>/novnc/) matching the default `vnc`
+  // transport below, rather than a bare /sim/<id>/ that has no proxy route and
+  // would reliably 404.
   const fallbackRoute =
     typeof entry.id === 'string' && entry.id.trim()
-      ? `/sim/${entry.id.trim()}/`
+      ? `/sim/${entry.id.trim()}/novnc/`
       : '/';
   const resolvedEntry = {
     ...entry,

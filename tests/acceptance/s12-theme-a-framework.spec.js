@@ -27,7 +27,7 @@ function rosNodeList() {
 }
 
 test.describe('S12 - Theme A framework deterministic evidence', () => {
-  test('FR-A3: simulator menu renders an additive third registry entry without SPA edits', async ({ page }) => {
+  test('FR-A3: simulator menu renders an additive third registry entry without SPA edits', async ({ page, request }) => {
     const additive = {
       id: 'stage-sandbox',
       label: 'Stage Sandbox',
@@ -40,24 +40,29 @@ test.describe('S12 - Theme A framework deterministic evidence', () => {
       state: 'stopped',
     };
 
+    // Snapshot the real registry ONCE via the API request context, then serve a
+    // deterministic augmented payload for every menu poll. The Simulators menu
+    // polls GET /control/simulators on an interval, so re-fetching inside the
+    // route handler (route.fetch() + response.text()) races the page teardown
+    // and throws "Response has been disposed". Fulfilling every GET from a
+    // pre-built static body (with the additive entry injected) is deterministic
+    // and also sidesteps stale content-length/content-encoding headers.
+    const base = await (await request.get('/control/simulators')).json();
+    const simulators = Array.isArray(base.simulators) ? [...base.simulators] : [];
+    if (!simulators.some((sim) => sim.id === additive.id)) {
+      simulators.push(additive);
+    }
+    const payload = JSON.stringify({ ...base, simulators });
+
     await page.route('**/control/simulators', async (route) => {
       if (route.request().method() !== 'GET') {
         await route.continue();
         return;
       }
-      const response = await route.fetch();
-      const body = JSON.parse(await response.text());
-      const simulators = Array.isArray(body.simulators) ? body.simulators : [];
-      if (!simulators.some((sim) => sim.id === additive.id)) {
-        simulators.push(additive);
-      }
       await route.fulfill({
-        status: response.status(),
-        headers: {
-          ...response.headers(),
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({ ...body, simulators }),
+        status: 200,
+        contentType: 'application/json',
+        body: payload,
       });
     });
 
@@ -80,7 +85,11 @@ test.describe('S12 - Theme A framework deterministic evidence', () => {
 
     try {
       const stop = await request.post('/control/simulators/turtlesim/stop');
-      expect([200, 404]).toContain(stop.status());
+      // 404 => turtlesim container not created (simulators profile inactive);
+      // the ROS-graph and relaunch assertions below could then only time out,
+      // so skip with a clear reason. Otherwise require the documented 200.
+      test.skip(stop.status() === 404, 'turtlesim container not created (simulators profile inactive)');
+      expect(stop.status()).toBe(200);
 
       await expect
         .poll(async () => {
@@ -94,7 +103,7 @@ test.describe('S12 - Theme A framework deterministic evidence', () => {
         .not.toContain('/turtlesim');
 
       const launch = await request.post('/control/simulators/turtlesim/launch');
-      expect([200, 404]).toContain(launch.status());
+      expect(launch.status()).toBe(200);
 
       await expect
         .poll(async () => {

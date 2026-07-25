@@ -16,7 +16,15 @@ async function ensureTurtlesimRunning(request) {
   const turtlesim = simulators.find((s) => s.id === 'turtlesim');
   test.skip(!turtlesim, 'turtlesim simulator is not installed in this build');
 
-  await ensureSimulatorNoVncReady(request, 'turtlesim', '/sim/turtlesim/novnc/');
+  if (turtlesim.state !== 'running') {
+    const launch = await request.post('/control/simulators/turtlesim/launch');
+    // 404 => the simulators profile is inactive / the container was never
+    // created, so the readiness poll below could only time out; skip with a
+    // clear reason. Otherwise require the documented 200 so a real launch
+    // failure surfaces deterministically instead of as an opaque timeout.
+    test.skip(launch.status() === 404, 'turtlesim container not created (simulators profile inactive)');
+    expect(launch.status()).toBe(200);
+  }
 
   await expect
     .poll(() => rosNodeList(), { timeout: 45_000 })

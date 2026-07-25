@@ -53,6 +53,7 @@
   let simulators = []; // [{ id, label, service, transport, panelRoute, ..., state }]
   let simBusy = new Set(); // simulator ids whose launch/stop is in flight
   let simPollTimer = null; // polls getSimulators() while the menu is open (FR-B1)
+  let simRefreshInFlight = false; // guards overlapping refreshSimulators() runs
   let simulatorsLoading = false;
   let simulatorsLoaded = false;
   let simulatorsError = '';
@@ -430,13 +431,23 @@
   // (FR-A3). Purely data-driven — the list reflects whatever the registry
   // returns, so a new registry entry appears here with no SPA edits.
   async function refreshSimulators() {
+    // The Simulators menu polls this on an interval and launch/stop also nudge
+    // it via setTimeout; a slow request could otherwise overlap the next tick
+    // and race two responses onto `simulators`/`simulatorsLoading`. Skip if a
+    // refresh is already in flight so only one runs at a time.
+    if (simRefreshInFlight) return;
+    simRefreshInFlight = true;
     simulatorsLoading = true;
     simulatorsError = '';
-    const result = await getSimulators();
-    simulators = result.simulators;
-    simulatorsLoaded = true;
-    simulatorsLoading = false;
-    if (!result.ok) simulatorsError = result.error;
+    try {
+      const result = await getSimulators();
+      simulators = result.simulators;
+      simulatorsLoaded = true;
+      if (!result.ok) simulatorsError = result.error;
+    } finally {
+      simulatorsLoading = false;
+      simRefreshInFlight = false;
+    }
   }
 
   // Open (or focus) a simulator's panel, routed by transport (FR-B4). Each
