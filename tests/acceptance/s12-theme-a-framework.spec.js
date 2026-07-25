@@ -51,10 +51,15 @@ test.describe('S12 - Theme A framework deterministic evidence', () => {
       if (!simulators.some((sim) => sim.id === additive.id)) {
         simulators.push(additive);
       }
+      // Strip content-length/content-encoding from the reused headers: the body
+      // below is modified (longer than the upstream response), so the original
+      // content-length would mismatch and can truncate the read or hang the
+      // browser; content-encoding would misdescribe the now-plain JSON body.
+      const { 'content-length': _cl, 'content-encoding': _ce, ...safeHeaders } = response.headers();
       await route.fulfill({
         status: response.status(),
         headers: {
-          ...response.headers(),
+          ...safeHeaders,
           'content-type': 'application/json',
         },
         body: JSON.stringify({ ...body, simulators }),
