@@ -37,6 +37,12 @@ To stop (volumes are preserved):
 docker compose down
 ```
 
+To rebuild the full stack and run tests in one line from the repository root:
+
+```bash
+docker compose down && docker compose build --parallel && docker compose up -d --remove-orphans && npm --prefix tests test
+```
+
 > **Warning:** `docker compose down -v` deletes the named volumes, including your
 > ROS workspace build artifacts. Use plain `docker compose down` to keep data.
 

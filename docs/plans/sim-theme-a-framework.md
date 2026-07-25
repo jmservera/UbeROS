@@ -1,28 +1,44 @@
-# Theme A — Pluggable simulator framework (registry + control API)
+---
+title: Theme A Pluggable Simulator Framework
+description: Implementation-synchronized status record for Theme A registry and lifecycle evidence.
+author: UbeROS Team
+ms.date: 2026-07-24
+ms.topic: reference
+---
 
-> Plan stub for parallel work. Source of truth: [Simulation & Visualization PRD](../prds/uberos-simulation-visualization.md) §7.1.
+## Theme A Pluggable Simulator Framework
 
-## Scope — FR-A1 … FR-A4
-- FR-A1 — Simulator registry (server-side, `services/control`): `id`, `label`, `service`, `transport` (`gzweb`|`vnc`), `panelRoute`, `rosIntegration` (`native`|`ros_gz`), `autostart`, `enabled`.
-- FR-A2 — `GET /control/simulators` returns installed simulators + live state (extend the `/services` pattern in `services/control/server.js`).
-- FR-A3 — Frontend menu/panels data-driven from `GET /simulators` (extend `services/frontend/src/lib/panels.js` `PANEL_DEFS`).
-- FR-A4 — Each launched simulator joins the shared `ROS_DOMAIN_ID` via the discovery server (no multicast).
+Implementation-synchronized status record.
 
-## Current Theme A Implementation Note
-- Theme A ships the registry + read-only API + menu foundation.
-- `turtlesim` is intentionally present in the catalog but `enabled: false` in this branch, because its compose service and `/sim/turtlesim/novnc/` proxy route are not implemented yet.
-- Downstream PRs can enable it by landing the service + route, then switching `enabled` to `true`.
+Source of truth: [Simulation and Visualization PRD](../prds/uberos-simulation-visualization.md) section 7.1.
 
-## Dependency / lane
-- **Lane 1 (foundation) — keystone.** No upstream deps. Themes B, C-menu, F-menu, and D consume this registry/API.
+## Scope (FR-A1 to FR-A4)
 
-## Likely files
-- `services/control/server.js` (+ registry module)
-- `services/frontend/src/lib/panels.js`, `services/frontend/src/lib/control.js`
+* FR-A1: Simulator registry in `services/control/simulators.js`
+* FR-A2: `GET /control/simulators` returns installed simulators with live state
+* FR-A3: Frontend simulator menu and panel definitions are data-driven
+* FR-A4: Launch and stop lifecycle behavior maps to ROS graph visibility
 
-## Tasks
-- [ ] Research: control-plane extension points + registry shape
-- [ ] Plan: registry module + `GET /simulators` contract + data-driven menu
-- [ ] Implement: registry, endpoint, data-driven panel/menu
-- [ ] Tests: endpoint shape + menu renders from registry
-- [ ] Acceptance (PRD §7.1)
+## Status Summary
+
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| FR-A1       | Implemented | Registry contract is implemented with `id`, `label`, `service`, `transport`, `panelRoute`, `rosIntegration`, `autostart`, and `enabled` |
+| FR-A2       | Implemented | Control plane exposes live simulator status through `/control/simulators` |
+| FR-A3       | Implemented | Additive extensibility proof is covered by acceptance test fixture scenario (`s12`) |
+| FR-A4       | Implemented | Launch and stop lifecycle is validated with deterministic ROS node visibility checks (`s12`) |
+
+## Evidence Pointers
+
+* `services/control/simulators.js`
+* `services/control/server.js`
+* `services/frontend/src/lib/panels.js`
+* `tests/acceptance/s12-theme-a-framework.spec.js`
+
+## Completion Checklist
+
+* [x] Research: control-plane extension points and registry shape
+* [x] Plan: registry module and `GET /simulators` contract
+* [x] Implement: registry, endpoint, and data-driven menu/panel behavior
+* [x] Tests: deterministic Theme A acceptance evidence (`s12`)
+* [x] Acceptance: FR-A1 through FR-A4 evidence mapped and synchronized

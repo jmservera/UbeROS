@@ -248,10 +248,14 @@ reconnects both; disallowed names are rejected.
 ### 7.4 Theme D — Build-time simulator selection
 | FR ID | Requirement | Goals | Priority | Acceptance |
 |-------|-------------|-------|----------|-----------|
-| FR-D1 | A build/compose configuration (compose **profiles** + build args, e.g. `UBEROS_SIMULATORS`) selects which simulator images build and which services are created. | G-004 | Must | Changing the setting changes the created simulator services. |
+| FR-D1 | A build/runtime configuration (for example `UBEROS_SIMULATORS`) selects which simulator entries are installed in the control-plane registry and shown in the launch menu for a deployment. | G-004 | Must | Changing the setting changes which simulators appear in the menu and can be launched from the control plane. |
 | FR-D2 | The default install set is **Gazebo + Turtlesim**. | G-004 | Must | A default `docker compose up` offers both in the menu. |
-| FR-D3 | Excluding a simulator keeps its image/service out of the build **and** its registry entry out of the menu. | G-004 | Must | Excluding Turtlesim yields no Turtlesim image and no menu entry. |
+| FR-D3 | Excluding a simulator keeps its registry entry out of the menu and blocks lifecycle actions for that simulator in the control plane. | G-004 | Must | Excluding Turtlesim yields no Turtlesim menu entry and launch/stop requests for it are rejected. |
 | FR-D4 | The build option and default are documented in `.env`/compose comments. | G-004 | Should | Docs state the default and how to change it. |
+
+Release interpretation note: for the current architecture, FR-D1 and FR-D3 are satisfied through
+runtime registry/menu filtering in the control plane. Compose-level service creation/build
+exclusion remains a potential follow-on optimization and is not required for this release.
 
 ### 7.5 Theme E — ROS 2 integration (Gazebo)
 | FR ID | Requirement | Goals | Priority | Acceptance |

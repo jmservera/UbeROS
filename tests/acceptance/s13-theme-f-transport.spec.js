@@ -1,0 +1,67 @@
+// S13 - Theme F transport deterministic evidence.
+// Verifies gzweb routing and explicit retirement of Gazebo noVNC semantics.
+import { test, expect } from '@playwright/test';
+
+test.describe('S13 - Theme F transport deterministic evidence', () => {
+  test('FR-F4: simulator route uses gzweb transport and Gazebo noVNC path is retired', async ({ request, page }) => {
+    const simRes = await request.get('/control/simulators');
+    expect(simRes.status()).toBe(200);
+    const body = await simRes.json();
+    const simulators = body.simulators ?? [];
+    const gazebo = simulators.find((s) => s.id === 'gazebo');
+    test.skip(!gazebo, 'gazebo simulator is not installed in this build');
+
+    expect(gazebo.transport).toBe('gzweb');
+    expect(gazebo.panelRoute).toBe('/gzweb/');
+
+    const gzweb = await request.get('/gzweb/');
+    expect(gzweb.status()).toBe(200);
+
+    const wsHandshake = await request.get('/gzweb/ws/');
+    // Preferred evidence is an explicit websocket/proxy status from nginx
+    // (400/426/502). Some stacks can still return 404 on plain HTTP GET to the
+    // websocket path, so in that case require an end-to-end gzweb connection to
+    // prove the routed websocket path is functional.
+    const wsStatus = wsHandshake.status();
+    if (wsStatus === 404) {
+      await page.goto('/gzweb/');
+      await expect(page.locator('#stream-status')).toHaveText(/connected/i, { timeout: 30_000 });
+      await expect(page.locator('#state')).toHaveText(/connected/i, { timeout: 30_000 });
+    } else {
+      expect([400, 426, 502]).toContain(wsStatus);
+    }
+
+    const retiredNoVnc = await request.get('/sim/gazebo/novnc/', { maxRedirects: 0 });
+    // A truly retired route has no nginx location, so it falls through to the SPA
+    // shell (200) or 404 — never 502. A 502 would mean nginx is still proxying
+    // this path to a (down) upstream, i.e. the legacy noVNC route is present but
+    // broken rather than retired, so it must fail this assertion (FR-F4).
+    expect([200, 404]).toContain(retiredNoVnc.status());
+    if (retiredNoVnc.status() === 200) {
+      const fallbackHtml = await retiredNoVnc.text();
+      // Some proxy/frontend variants route unknown paths to the SPA shell.
+      // Accept that only when the body is clearly not a noVNC endpoint.
+      expect(fallbackHtml).not.toContain('noVNC');
+      expect(fallbackHtml).toContain('<!doctype html');
+    }
+
+    await page.goto('/');
+    await expect(page.locator('iframe.panel-frame[src*="/gzweb/"]').first()).toBeAttached({ timeout: 20_000 });
+    await expect(page.locator('iframe.panel-frame[src*="/sim/gazebo/novnc/"]')).toHaveCount(0);
+  });
+
+  test('FR-F5: capture informative gzweb connection timing evidence with bounded threshold', async ({ page }) => {
+    // Start the clock AFTER navigation so the bounded threshold measures gzweb
+    // connection time (the FR-F5 signal), not page-load/navigation overhead,
+    // which would otherwise make this flaky on slower hosts.
+    await page.goto('/gzweb/');
+    const started = Date.now();
+    await expect(page.locator('#stream-status')).toHaveText(/connected/i, { timeout: 30_000 });
+    await expect(page.locator('#state')).toHaveText(/connected/i, { timeout: 30_000 });
+
+    const elapsedMs = Date.now() - started;
+    // Informative ceiling to keep deterministic CI signal while documenting
+    // FR-F5 behavior in variable host environments.
+    expect(elapsedMs).toBeLessThan(30_000);
+  });
+});

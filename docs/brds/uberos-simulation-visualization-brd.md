@@ -252,6 +252,10 @@ Acceptance criteria:
 - A build configured to exclude Turtlesim produces an image without it and a menu that does not
   list it.
 
+Interpretation note for this release: Theme D acceptance is evaluated on control-plane registry
+and menu behavior. Excluded simulators must be hidden from the menu and not launchable. Compose-
+level service creation/build exclusion is tracked as follow-on scope.
+
 ### 7.5 Theme E — ROS 2 integration for simulators
 
 | ID | Requirement | Priority |

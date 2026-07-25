@@ -1,25 +1,44 @@
-# Theme C — Turtlesim visualizer
+---
+title: Theme C Turtlesim Visualizer
+description: Implementation-synchronized status record for Theme C turtlesim route and ROS integration evidence.
+author: UbeROS Team
+ms.date: 2026-07-24
+ms.topic: reference
+---
 
-> Plan stub. Source of truth: [Simulation & Visualization PRD](../prds/uberos-simulation-visualization.md) §7.3.
+## Theme C Turtlesim Visualizer
 
-## Scope — FR-C1 … FR-C4
-- FR-C1 — `turtlesim` service: Xvfb + `turtlesim_node` + window manager + x11vnc + websockify (reuse the existing VNC pattern), rendered via noVNC.
-- FR-C2 — Turtlesim noVNC reachable behind the proxy at its own route (e.g. `/sim/turtlesim/novnc/`); no host-published port.
-- FR-C3 — `turtlesim_node` joins the ROS graph natively (no bridge) via the discovery server.
-- FR-C4 — Drivable from a Terminal panel (teleop) while visible.
+Implementation-synchronized status record.
 
-## Dependency / lane
-- **Lane 3 (Turtlesim backend) — parallel, starts immediately.** Service/route infra independent of A/B.
-- Menu wiring depends on Theme A (registry entry) + Theme B (launch). Build inclusion via Theme D.
+Source of truth: [Simulation and Visualization PRD](../prds/uberos-simulation-visualization.md) section 7.3.
 
-## Likely files
-- `services/turtlesim/` (new Dockerfile + entrypoint, modeled on `services/vnc/`)
-- `compose.yaml` (new service, `simulators` profile)
-- `services/proxy/nginx.conf` (new noVNC route)
+## Scope (FR-C1 to FR-C4)
 
-## Tasks
-- [ ] Research: reuse of vnc sidecar pattern; turtlesim package name for ROS_DISTRO
-- [ ] Plan: service layout + proxy route
-- [ ] Implement: turtlesim service + route + ROS domain join
-- [ ] Tests: turtle renders; `/turtle1/cmd_vel` moves it
-- [ ] Acceptance (PRD §7.3)
+* FR-C1: `turtlesim` service runtime pipeline is active
+* FR-C2: Turtlesim noVNC route is reachable through `/sim/turtlesim/novnc/`
+* FR-C3: `turtlesim_node` joins the shared ROS graph via discovery server
+* FR-C4: Turtlesim is drivable through ROS command path while visible
+
+## Status Summary
+
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| FR-C1       | Implemented | `services/turtlesim/` runtime stack is active in compose defaults |
+| FR-C2       | Implemented | noVNC route is validated by deterministic acceptance checks (`s11`) |
+| FR-C3       | Implemented | ROS graph membership is validated via deterministic node visibility checks (`s11`) |
+| FR-C4       | Implemented | ROS command-path drivability is validated through publish handshake evidence (`s11`) |
+
+## Evidence Pointers
+
+* `services/turtlesim/entrypoint.sh`
+* `compose.yaml`
+* `services/proxy/nginx.conf`
+* `tests/acceptance/s11-theme-c-turtlesim.spec.js`
+
+## Completion Checklist
+
+* [x] Research: vnc/noVNC pattern reuse and ROS package/runtime constraints
+* [x] Plan: service layout and proxy routing
+* [x] Implement: turtlesim service, route, and ROS discovery integration
+* [x] Tests: deterministic Theme C acceptance evidence (`s11`)
+* [x] Acceptance: FR-C1 through FR-C4 evidence mapped and synchronized
