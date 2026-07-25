@@ -5,7 +5,7 @@
 # state streamed from the headless gazebo container's WebsocketServer (:9002).
 
 # --- build stage ---
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 # The npm registry is configurable so a corporate/internal proxy stays out of
 # the repo. Default is the public registry; override via the NPM_REGISTRY build
 # arg (wired from .env through compose.yaml, exactly like services/frontend).
