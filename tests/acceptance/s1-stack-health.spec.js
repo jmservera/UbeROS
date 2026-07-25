@@ -7,9 +7,13 @@ import { SERVICES, healthSnapshot } from '../helpers/stack.js';
 test.describe('S1 - stack starts without error', () => {
   test('all seven services report healthy', async ({ request }) => {
     // Prior tests can intentionally stop simulators; reconcile to running so
-    // this stack-health assertion remains independent and deterministic.
-    await request.post('/control/simulators/gazebo/launch');
-    await request.post('/control/simulators/turtlesim/launch');
+    // this stack-health assertion remains independent and deterministic. Assert
+    // the reconcile succeeded so a control-plane rejection (403) or missing
+    // container (404) surfaces here rather than as an opaque health-poll timeout.
+    const gazebo = await request.post('/control/simulators/gazebo/launch');
+    expect(gazebo.status()).toBe(200);
+    const turtlesim = await request.post('/control/simulators/turtlesim/launch');
+    expect(turtlesim.status()).toBe(200);
 
     await expect
       .poll(

@@ -18,7 +18,12 @@ async function ensureTurtlesimRunning(request) {
 
   if (turtlesim.state !== 'running') {
     const launch = await request.post('/control/simulators/turtlesim/launch');
-    expect([200, 404]).toContain(launch.status());
+    // 404 => the simulators profile is inactive / the container was never
+    // created, so the readiness poll below could only time out; skip with a
+    // clear reason. Otherwise require the documented 200 so a real launch
+    // failure surfaces deterministically instead of as an opaque timeout.
+    test.skip(launch.status() === 404, 'turtlesim container not created (simulators profile inactive)');
+    expect(launch.status()).toBe(200);
   }
 
   await expect
