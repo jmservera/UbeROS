@@ -241,8 +241,14 @@ async function safeContainerVerb(containerId, verb) {
   }
 }
 
+// Stamp precedence: an explicit STACK_INSTANCE wins; otherwise the control
+// container's HOSTNAME (its container id) so reconcile runs once per container
+// creation. `docker compose down`/`up` recreates the control container (new
+// HOSTNAME) and re-runs reconcile — picking up UBEROS_SIMULATORS_AUTOSTART
+// changes — while a plain restart keeps the same HOSTNAME and stays skipped.
+// PROJECT is the last-resort fallback if HOSTNAME is somehow unset.
 async function shouldRunAutostartReconcile() {
-  const stamp = STACK_INSTANCE || PROJECT;
+  const stamp = STACK_INSTANCE || process.env.HOSTNAME || PROJECT;
   try {
     const prior = (await readFile(AUTOSTART_STAMP_FILE, 'utf8')).trim();
     if (prior === stamp) return false;
@@ -253,7 +259,7 @@ async function shouldRunAutostartReconcile() {
 }
 
 async function markAutostartReconciled() {
-  const stamp = STACK_INSTANCE || PROJECT;
+  const stamp = STACK_INSTANCE || process.env.HOSTNAME || PROJECT;
   await mkdir(dirname(AUTOSTART_STAMP_FILE), { recursive: true });
   await writeFile(AUTOSTART_STAMP_FILE, stamp, 'utf8');
 }
