@@ -32,4 +32,4 @@
 * FR-B2/B3/B7 evidence: simulator lifecycle endpoints and allowlist enforcement in `services/control/server.js`.
 * FR-B4/B5 evidence: transport-routed simulator panels and independent busy-state tracking in `services/frontend/src/lib/panels.js` and `services/frontend/src/App.svelte`.
 * FR-B6 evidence: reload reconnect and running-state persistence validated by `tests/acceptance/s10-theme-b-lifecycle.spec.js`.
-* FR-B8 evidence: autostart override matrix validated by `tests/acceptance/s10-theme-b-lifecycle.spec.js` plus default env wiring in `.env.example` and `compose.yaml`.
+* FR-B8 evidence: per-simulator `autostart` intent is surfaced as a boolean on control-plane state (asserted for every installed simulator by `tests/acceptance/s10-theme-b-lifecycle.spec.js`); the override matrix (which ids autostart) is parsed from `UBEROS_SIMULATORS_AUTOSTART` in `services/control/simulators.js` with default env wiring in `.env.example` and `compose.yaml`.

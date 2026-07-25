@@ -32,7 +32,11 @@ test.describe('S13 - Theme F transport deterministic evidence', () => {
     }
 
     const retiredNoVnc = await request.get('/sim/gazebo/novnc/', { maxRedirects: 0 });
-    expect([200, 404, 502]).toContain(retiredNoVnc.status());
+    // A truly retired route has no nginx location, so it falls through to the SPA
+    // shell (200) or 404 — never 502. A 502 would mean nginx is still proxying
+    // this path to a (down) upstream, i.e. the legacy noVNC route is present but
+    // broken rather than retired, so it must fail this assertion (FR-F4).
+    expect([200, 404]).toContain(retiredNoVnc.status());
     if (retiredNoVnc.status() === 200) {
       const fallbackHtml = await retiredNoVnc.text();
       // Some proxy/frontend variants route unknown paths to the SPA shell.
@@ -47,8 +51,11 @@ test.describe('S13 - Theme F transport deterministic evidence', () => {
   });
 
   test('FR-F5: capture informative gzweb connection timing evidence with bounded threshold', async ({ page }) => {
-    const started = Date.now();
+    // Start the clock AFTER navigation so the bounded threshold measures gzweb
+    // connection time (the FR-F5 signal), not page-load/navigation overhead,
+    // which would otherwise make this flaky on slower hosts.
     await page.goto('/gzweb/');
+    const started = Date.now();
     await expect(page.locator('#stream-status')).toHaveText(/connected/i, { timeout: 30_000 });
     await expect(page.locator('#state')).toHaveText(/connected/i, { timeout: 30_000 });
 

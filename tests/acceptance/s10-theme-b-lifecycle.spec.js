@@ -1,6 +1,10 @@
 // S10 - Theme B lifecycle acceptance coverage for FR-B6 and FR-B8.
-// Verifies reload reconnect and autostart override semantics via control-plane
-// simulator state without requiring direct Docker API assertions in test code.
+// Verifies reload reconnect (FR-B6) and that each installed simulator surfaces
+// its configured autostart intent as a boolean flag on control-plane state
+// (FR-B8), without requiring direct Docker API assertions in test code. The
+// override matrix itself (which ids autostart) is driven by env configuration
+// and unit-covered in services/control/simulators.js; this spec proves the flag
+// is exposed per simulator, not the full env-permutation behavior.
 import { test, expect } from '@playwright/test';
 
 async function getSimulators(request) {
