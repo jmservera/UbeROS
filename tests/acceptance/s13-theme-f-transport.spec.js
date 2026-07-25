@@ -56,6 +56,7 @@ test.describe('S13 - Theme F transport deterministic evidence', () => {
     // connection time (the FR-F5 signal), not page-load/navigation overhead,
     // which would otherwise make this flaky on slower hosts.
     await page.goto('/gzweb/');
+    const started = Date.now();
     await expect(page.locator('#state')).toHaveText(/connected/i, { timeout: 30_000 });
     await expect(page.locator('#scene canvas').first()).toBeVisible({ timeout: 45_000 });
 

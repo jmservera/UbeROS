@@ -41,7 +41,7 @@ docker compose down
 To rebuild the full stack and run tests in one line from the repository root:
 
 ```bash
-docker compose down && docker compose build --parallel && docker compose up -d --remove-orphans && npm --prefix tests test
+docker compose down && docker compose build --parallel && docker compose up -d --remove-orphans && npm test --prefix tests
 ```
 
 > **Warning:** `docker compose down -v` deletes the named volumes, including your
@@ -61,8 +61,9 @@ docker compose down && docker compose build --parallel && docker compose up -d -
 | `control` | Operational control plane (service reset, simulator launch/stop, config) | 9000 |
 | `discovery-server` | Fast DDS discovery (removes multicast dependency) | 11811 |
 
-The simulator services (`gazebo`, `gzweb-client`, `turtlesim`) run under the
-`simulators` compose profile (see [Simulator selection](#simulator-selection-build-time)).
+The simulator services (`gazebo`, `gzweb-client`, `turtlesim`) are always-on and
+start with the stack; which simulators the menu offers is gated at runtime by
+`UBEROS_SIMULATORS` (see [Simulator selection](#simulator-selection)).
 Only the proxy port is published to the host. Backend ports are reachable only
 through the proxy.
 
@@ -85,7 +86,7 @@ Settings live in `.env` (committed defaults contain no secrets):
 Simulators are launched on demand from the **Simulators** menu and run
 concurrently, each as its own container; they survive a browser reload (the
 panel reconnects to the still-running simulator). By default both start with the
-stack (`COMPOSE_PROFILES=simulators`) and can be stopped/relaunched from the menu.
+stack and can be stopped/relaunched from the menu.
 
 | Simulator | Visualization | ROS integration |
 |---|---|---|
@@ -95,26 +96,24 @@ stack (`COMPOSE_PROFILES=simulators`) and can be stopped/relaunched from the men
 All simulators join the shared `ROS_DOMAIN_ID` through the Fast DDS discovery
 server (no multicast).
 
-### Simulator selection (build-time)
+### Simulator selection
 
-Which simulators build and appear is controlled by two coordinated settings in
-`.env` (defaults install and show **both** Gazebo and Turtlesim):
+Which simulators the menu offers is selected at runtime by a single setting in
+`.env` (the default installs and shows **both** Gazebo and Turtlesim):
 
-- `COMPOSE_PROFILES` — build-time selection. Each simulator has its own compose
-  profile (`sim-gazebo`, `sim-turtlesim`) plus the umbrella `simulators` (all).
-  Only a simulator whose profile is active is built and created as a service.
-- `UBEROS_SIMULATORS` — registry/menu gating; which entries the menu offers.
+- `UBEROS_SIMULATORS`: comma-separated registry ids the control plane installs
+  and the menu offers. Omit a simulator to exclude it: its menu entry disappears
+  and its launch/stop requests are rejected. The simulator services are
+  always-on (there are no compose profiles); this setting gates the registry and
+  menu, not the build.
 
-Set them in tandem so an excluded simulator drops from both the built services
-and the menu:
+| Selection | `UBEROS_SIMULATORS` |
+|---|---|
+| Both (default) | `gazebo,turtlesim` *(or unset)* |
+| Gazebo only | `gazebo` |
+| Turtlesim only | `turtlesim` |
 
-| Selection | `COMPOSE_PROFILES` | `UBEROS_SIMULATORS` |
-|---|---|---|
-| Both (default) | `simulators` | *(unset)* |
-| Gazebo only | `sim-gazebo` | `gazebo` |
-| Turtlesim only | `sim-turtlesim` | `turtlesim` |
-
-Verify a selection with `docker compose config --services`.
+Verify the installed set with `curl -s http://localhost:8080/control/simulators`.
 
 ### GPU acceleration (opt-in)
 

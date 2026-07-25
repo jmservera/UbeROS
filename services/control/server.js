@@ -468,7 +468,7 @@ const server = http.createServer(async (req, res) => {
 
     // POST /simulators/{id}/launch — start an installed simulator (FR-B2). The
     // id is allowlisted against the registry (403 if unknown), and its container
-    // must exist (404 if the `simulators` profile is inactive).
+    // must exist (404 if the simulator's container was not created).
     const simLaunch = path.match(/^\/simulators\/([A-Za-z0-9_.-]+)\/launch$/);
     if (req.method === 'POST' && simLaunch) {
       const id = simLaunch[1];

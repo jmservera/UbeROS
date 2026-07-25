@@ -91,18 +91,16 @@ services:
   # during restarts). On ros_net (DDS discovery, for the Theme E bridge) and
   # web_net (proxy). No host-published ports (INV-04, WP-13).
   #
-  # Build-time selection (Theme D, FR-D1): two profiles gate this service — the
-  # umbrella `simulators` (all sims at once) and its own `sim-gazebo` (Gazebo
-  # only). COMPOSE_PROFILES picks the set, so `sim-gazebo` builds/creates just
-  # Gazebo while `sim-gazebo,sim-turtlesim` (or the umbrella `simulators`) yields
-  # both. Set UBEROS_SIMULATORS in tandem so the menu matches (see .env.example).
+  # Install-set selection (Theme D, FR-D1/FR-D3) is runtime, not build-time:
+  # Gazebo is always-on in the default stack, and the control-plane registry
+  # (UBEROS_SIMULATORS) gates whether it appears in the menu and can be launched
+  # or stopped. There are no compose profiles for simulators.
   gazebo:
     build:
       context: ./services/gazebo
       args:
         GZ_RELEASE: ${GZ_RELEASE:-ionic}
         ROS_DISTRO: ${ROS_DISTRO:-kilted}
-    profiles: ["simulators", "sim-gazebo"]
     depends_on:
       discovery-server:
         condition: service_healthy

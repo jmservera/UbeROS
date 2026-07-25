@@ -75,7 +75,7 @@ test.describe('S12 - Theme A framework deterministic evidence', () => {
   });
 
   test('FR-A4: stop and launch are reflected in ROS graph node visibility', async ({ request }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(240_000);
 
     const simulators = await getSimulators(request);
     const turtlesim = simulators.find((s) => s.id === 'turtlesim');

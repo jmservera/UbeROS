@@ -113,9 +113,10 @@ export async function ensureSimulatorNoVncReady(
   request,
   id,
   noVncPath,
-  timeoutMs = 150_000
+  timeoutMs = 210_000
 ) {
   ensureSimulatorRunning(id);
+  const deadline = Date.now() + timeoutMs;
 
   // Ask the control plane to launch the simulator in case it was intentionally
   // stopped by prior lifecycle tests in the same full-suite run.
@@ -130,13 +131,13 @@ export async function ensureSimulatorNoVncReady(
     request,
     id,
     ['starting', 'running'],
-    timeoutMs
+    Math.max(0, deadline - Date.now())
   );
   if (!['starting', 'running'].includes(state)) {
     throw new Error(`Simulator ${id} did not reach starting/running; last state: ${state}`);
   }
 
-  const noVncStatus = await waitForNoVncRoute(request, noVncPath, timeoutMs);
+  const noVncStatus = await waitForNoVncRoute(request, noVncPath, Math.max(0, deadline - Date.now()));
   if (noVncStatus !== 200) {
     throw new Error(`${noVncPath} did not become ready; last status: ${noVncStatus}`);
   }

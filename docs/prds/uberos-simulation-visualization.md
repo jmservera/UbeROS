@@ -19,7 +19,7 @@ Version 1.0.0 | Status Approved | Owner jmservera | Team Squad | Target Next ite
 | Scope | 90% | Separate-container, concurrent, persistent, build-selectable confirmed | 2026-07-21 |
 | Requirements | 90% | FR/NFR across six themes incl. auto-start (FR-B8) + ros-image cleanup (FR-E6) | 2026-07-21 |
 | Metrics & Risks | 90% | gzweb path confirmed for Ionic; client=minimal, pairing kilted/ionic locked | 2026-07-21 |
-| Operationalization | 90% | Lifecycle design approved: profile + allowlisted start/stop; configurable auto-start, default both on (planned) | 2026-07-21 |
+| Operationalization | 90% | Lifecycle design approved: always-on services + allowlisted start/stop; configurable auto-start, default both on (planned) | 2026-07-21 |
 | Finalization | 100% | Approved 2026-07-21; all questions resolved; ready for implementation | 2026-07-21 |
 Unresolved Critical Questions: 0 | TBDs: 0
 
@@ -230,9 +230,9 @@ surfaces in the menu by registration alone; launching either makes it ROS-visibl
 Acceptance criteria: the menu launches/stops each installed simulator; two run at once; a reload
 reconnects both; disallowed names are rejected.
 
-> Operational note (Q-2, design resolved, implementation pending): simulator services are planned
-> in compose under a `simulators` profile; the control plane will start/stop them at runtime
-> (allowlisted). Whether a simulator **auto-starts** at `docker compose up` is planned to be
+> Operational note (Q-2, design resolved): simulator services are always-on
+> in compose; the control plane starts/stops them at runtime
+> (allowlisted). Whether a simulator **auto-starts** at `docker compose up` is
 > **configurable per simulator** (`autostart` in the registry / a
 > `UBEROS_SIMULATORS_AUTOSTART` list), and the default is planned to auto-start both Gazebo and
 > Turtlesim. The control plane will continue using only list/start/stop/restart Docker ops.
@@ -254,8 +254,9 @@ reconnects both; disallowed names are rejected.
 | FR-D4 | The build option and default are documented in `.env`/compose comments. | G-004 | Should | Docs state the default and how to change it. |
 
 Release interpretation note: for the current architecture, FR-D1 and FR-D3 are satisfied through
-runtime registry/menu filtering in the control plane. Compose-level service creation/build
-exclusion remains a potential follow-on optimization and is not required for this release.
+runtime registry/menu filtering in the control plane (`UBEROS_SIMULATORS`). Compose profiles were
+dropped in favor of always-on simulator services; compose-level build/service exclusion remains a
+potential follow-on optimization and is not required for this release.
 
 ### 7.5 Theme E — ROS 2 integration (Gazebo)
 | FR ID | Requirement | Goals | Priority | Acceptance |
@@ -339,8 +340,8 @@ State values: `available` (installed, not running), `starting`, `running`, `stop
 | `/sim/turtlesim/novnc/` | `turtlesim:6080` | noVNC + websockify, same pattern as today's `/novnc/`. |
 
 ### Compose services (shape)
-* `gazebo` — build on `gazebo:${GZ_RELEASE}-full` + `ros-${ROS_DISTRO}-ros-gz` + the self-hosted `gzweb` static client; entrypoint sources ROS, runs headless `gz sim -s`, the WebSocket server (`gz launch` `WebsocketServer` on Ionic / `gz-sim` `WebsocketServer` system on Jetty, :9002), and `ros_gz_bridge` (with `/clock`). On `ros_net` + `web_net`. Profile `simulators`.
-* `turtlesim` — build on `ros:${ROS_DISTRO}-ros-base` + `ros-${ROS_DISTRO}-turtlesim` + Xvfb/x11vnc/websockify/openbox; entrypoint runs Xvfb, `turtlesim_node`, x11vnc, websockify. On `ros_net` + `web_net`. Profile `simulators`.
+* `gazebo` — build on `gazebo:${GZ_RELEASE}-full` + `ros-${ROS_DISTRO}-ros-gz` + the self-hosted `gzweb` static client; entrypoint sources ROS, runs headless `gz sim -s`, the WebSocket server (`gz launch` `WebsocketServer` on Ionic / `gz-sim` `WebsocketServer` system on Jetty, :9002), and `ros_gz_bridge` (with `/clock`). On `ros_net` + `web_net`. Always-on; runtime-selectable via `UBEROS_SIMULATORS`.
+* `turtlesim` — build on `ros:${ROS_DISTRO}-ros-base` + `ros-${ROS_DISTRO}-turtlesim` + Xvfb/x11vnc/websockify/openbox; entrypoint runs Xvfb, `turtlesim_node`, x11vnc, websockify. On `ros_net` + `web_net`. Always-on; runtime-selectable via `UBEROS_SIMULATORS`.
 * The legacy `simulator` + `vnc` services are retired once `gazebo`/`turtlesim` land (FR-F4).
 
 ## 10. Dependencies
@@ -365,7 +366,7 @@ State values: `available` (installed, not running), `starting`, `running`, `stop
 ## 12. Operational Considerations
 | Aspect | Requirement | Notes |
 |--------|------------|-------|
-| Deployment | Simulator services under a `simulators` profile; per-simulator `autostart` (default both on) | Control plane starts/stops on demand thereafter |
+| Deployment | Always-on simulator services; install set selected at runtime via `UBEROS_SIMULATORS`; per-simulator `autostart` (default both on) | Control plane starts/stops on demand thereafter |
 | Rollback | Keep the legacy `simulator`/`vnc` path until `gazebo`/`turtlesim` pass acceptance | Retire in FR-F4 once green |
 | Monitoring | Reuse control-plane state derivation for simulators | Menu shows per-sim state |
 | Resource | Idle simulators consume nothing | NFR-RES-1 |
@@ -376,7 +377,7 @@ State values: `available` (installed, not running), `starting`, `running`, `stop
 | 1 | Simulator registry + control-plane `GET /simulators` + start/stop (allowlisted) | Endpoints + allowlist tested |
 | 2 | Simulators menu (data-driven) + concurrent + reload-reconnect | Two sims launch/stop; reload reconnects |
 | 3 | Turtlesim service + noVNC route + ROS-visible | Turtle renders + drivable (proves VNC transport) |
-| 4 | Build-time selection (profiles/args), defaults Gazebo + Turtlesim | Include/exclude verified |
+| 4 | Runtime install-set selection via `UBEROS_SIMULATORS`, defaults Gazebo + Turtlesim | Include/exclude verified |
 | 5 | Gazebo `ros_gz` integration (`/clock`, discovery server, sourced ROS) | `/clock` on graph |
 | 6 | Gazebo `gzweb` web visualization; retire Gazebo VNC | `gzweb` panel, < 300ms, no x11vnc for Gazebo |
 
@@ -386,7 +387,7 @@ Recommendation: spike **R-1 (`gzweb` on the pinned Gazebo release)** before Phas
 | Q ID | Question | Owner | Status |
 |------|----------|-------|--------|
 | Q-1 | Which `gzweb`/web client + Gazebo release pairing is adopted, and exactly how is it served (`/gzweb/` static + ws upstream/port)? | jmservera/Squad | Resolved by spike: self-hosted `gazebo-web/gzweb` client + `WebsocketServer` on :9002 behind `/gzweb/` + `/gzweb/ws/`; keep Ionic now, plan Jetty (LTS) later. |
-| Q-2 | Control-plane lifecycle mechanism and auto-start. | Squad | Design resolved, implementation pending: compose `simulators` profile + allowlisted control-plane start/stop; per-simulator `autostart` **configurable**, default **both on**. |
+| Q-2 | Control-plane lifecycle mechanism and auto-start. | Squad | Design resolved: always-on services + allowlisted control-plane start/stop; install set selected at runtime via `UBEROS_SIMULATORS`; per-simulator `autostart` **configurable**, default **both on**. |
 | Q-3 | Default `ros_gz` bridge set beyond `/clock` once a robot/world is introduced. | Squad | Deferred (per-world) |
 | Q-4 | Do we keep `ros-gz` in the `ros` image (for `ros_gz_interfaces` consumers) or drop it as redundant? | Squad | Design resolved, implementation pending: **drop it** from the `ros` image (FR-E6). |
 | Q-5 | Are in-sim **camera-sensor `image` feeds** in scope? They reintroduce a server-side GL/rendering requirement for those topics. | jmservera | Resolved: **out of scope** this iteration. |

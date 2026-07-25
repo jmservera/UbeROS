@@ -18,7 +18,7 @@
 ## Likely files
 - `services/control/server.js` (launch/stop endpoints, autostart)
 - `services/frontend/src/App.svelte` (menu), `services/frontend/src/lib/control.js`
-- `compose.yaml` (`simulators` profile)
+- `compose.yaml` (always-on simulator services)
 
 ## Tasks
 - [x] Research: Docker start/stop via existing socket client; reconnect semantics

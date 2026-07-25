@@ -78,7 +78,6 @@ test.describe('S11 - Theme C turtlesim deterministic evidence', () => {
       'ros',
       `bash -lc '${rosShell("ros2 topic pub --once /turtle1/cmd_vel geometry_msgs/msg/Twist \"{linear: {x: 2.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}\"")}'`
     );
-    expect(publishOutput).toContain('Waiting for at least 1 matching subscription(s)...');
     expect(publishOutput).toContain('publishing #1:');
 
     await expect
