@@ -188,7 +188,7 @@ reports for Apple-silicon support are especially appreciated.
 - Project brief: [docs/specs/01-Init.md](docs/specs/01-Init.md)
 - Research report: [docs/specs/01-Init-research.md](docs/specs/01-Init-research.md)
 - PRD (init): [docs/prds/uberos-init.md](docs/prds/uberos-init.md)
-- Simulation & Visualization: [BRD](docs/brds/uberos-simulation-visualization-brd.md) · [PRD](docs/prds/uberos-simulation-visualization.md)
+- Simulation & Visualization: [BRD](docs/brds/003-uberos-simulation-visualization-brd.md) · [PRD](docs/prds/uberos-simulation-visualization.md)
 - Decisions: [docs/decisions/](docs/decisions/)
 
 > **Note:** The primary ROS distribution (Kilted) passed SPIKE-A image and

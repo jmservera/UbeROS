@@ -8,7 +8,7 @@ ms.topic: concept
 
 ## UbeROS Simulation and Visualization BRD
 
-Version 0.2.0 | Status Approved | Owner jmservera | Related [Workspace Enhancements BRD](./uberos-workspace-enhancements-brd.md) · [Workspace Management BRD](./uberos-workspace-management-brd.md) · [uberos-init PRD](../prds/uberos-init.md)
+Version 0.2.0 | Status Approved | Owner jmservera | Related [Workspace Enhancements BRD](./002-uberos-workspace-enhancements-brd.md) · [Workspace Management BRD](./001-uberos-workspace-management-brd.md) · [uberos-init PRD](../prds/uberos-init.md)
 
 ## Progress Tracker
 
@@ -127,7 +127,7 @@ simulator from participating in ROS workflows.
 - Replacing Golden Layout, the single-reverse-proxy topology, or the ROS middleware/discovery
   design.
 - Solving the WSL2 Intel GPU rendering blocker itself: that remains the
-  [Workspace Enhancements BRD](./uberos-workspace-enhancements-brd.md) Theme E spike; this BRD's
+  [Workspace Enhancements BRD](./002-uberos-workspace-enhancements-brd.md) Theme E spike; this BRD's
   web-visualization move is a complementary path that shifts rendering to the browser.
 
 ### Assumptions

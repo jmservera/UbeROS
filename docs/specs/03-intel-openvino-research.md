@@ -9,7 +9,7 @@ ms.topic: concept
 # Intel GPU and OpenVINO Compatibility Research for the Simulator Overlay
 
 This report addresses business requirement **BR-012** from the
-[Workspace Management BRD](../brds/uberos-workspace-management-brd.md): investigate
+[Workspace Management BRD](../brds/001-uberos-workspace-management-brd.md): investigate
 Intel GPU and OpenVINO compatibility for the simulator overlay, using the existing
 NVIDIA overlay ([`compose.override.gpu.yaml`](../../compose.override.gpu.yaml)) as a
 starting point, and implement an Intel overlay if feasible.

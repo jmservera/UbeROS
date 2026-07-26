@@ -8,7 +8,7 @@ ms.topic: concept
 
 # UbeROS Release, Packaging and Distribution BRD
 
-Version 0.1.0 | Status Approved | Owner jmservera | Related [Workspace Management BRD](./uberos-workspace-management-brd.md) · [Workspace Enhancements BRD](./uberos-workspace-enhancements-brd.md) · [uberos-init PRD](../prds/uberos-init.md) · Issues [#29](https://github.com/jmservera/UbeROS/issues/29), [#19](https://github.com/jmservera/UbeROS/issues/19), [#30](https://github.com/jmservera/UbeROS/issues/30)
+Version 0.1.0 | Status Approved | Owner jmservera | Related [Workspace Management BRD](./001-uberos-workspace-management-brd.md) · [Workspace Enhancements BRD](./002-uberos-workspace-enhancements-brd.md) · [uberos-init PRD](../prds/uberos-init.md) · Issues [#29](https://github.com/jmservera/UbeROS/issues/29), [#19](https://github.com/jmservera/UbeROS/issues/19), [#30](https://github.com/jmservera/UbeROS/issues/30)
 
 ## Progress Tracker
 

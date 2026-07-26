@@ -396,7 +396,7 @@ stack (a separate initiative).
 |---|---|
 | [`docs/specs/03-intel-openvino-research.md`](03-intel-openvino-research.md) | Establishes WSL2 uses `/dev/dxg` (not `/dev/dri`), the D3D12/dozen render path, and `/usr/lib/wsl` driver mounting — the foundation this spike diagnoses |
 | [`docs/prds/uberos-workspace-enhancements.md`](../prds/uberos-workspace-enhancements.md) | FR-E1..E3 / G-006 (Theme E), Risk R-5, and the Mesa d3d12 dependency this spike resolves |
-| [`docs/brds/uberos-workspace-enhancements-brd.md`](../brds/uberos-workspace-enhancements-brd.md) | Business intent for the GPU-on-WSL2 theme |
+| [`docs/brds/002-uberos-workspace-enhancements-brd.md`](../brds/002-uberos-workspace-enhancements-brd.md) | Business intent for the GPU-on-WSL2 theme |
 | [`compose.override.wsl.yaml`](../../compose.override.wsl.yaml) | The WSL overlay under diagnosis and the only file changed (commented `ogre1` fallback guidance) |
 | [`compose.override.intel.yaml`](../../compose.override.intel.yaml) | Native-Linux `/dev/dri` + `iris` overlay — the recommended fallback if the WSL path is blocked |
 | [`services/simulator/Dockerfile`](../../services/simulator/Dockerfile) | Mesa stack baked into the rendering container; where `d3d12_dri.so` must be present |
