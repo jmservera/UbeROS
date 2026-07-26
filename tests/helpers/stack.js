@@ -46,8 +46,8 @@ export function execInService(service, shellCommand) {
 // Ensure a simulator's compose service is running before a test that streams
 // it. Simulators are now treated as always-on via the UBEROS_SIMULATORS
 // environment variable; this brings the named service up idempotently so the
-// noVNC/gzweb stream has a live backend. Returns the service health once
-// `docker compose up` settles.
+// noVNC/gzweb stream has a live backend. Returns the current docker health
+// value for the service (it may still be starting).
 export function ensureSimulatorRunning(service) {
   execFileSync(
     'docker',

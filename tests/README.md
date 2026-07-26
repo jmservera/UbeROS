@@ -30,8 +30,7 @@ against a **running** stack.
 
 ## Install
 
-Direct npmjs.org access is not permitted; install through the corporate proxy
-registry:
+If direct npmjs.org access is not permitted in your environment, configure npm to use your corporate proxy registry before installing dependencies:
 
 ```bash
 cd tests
