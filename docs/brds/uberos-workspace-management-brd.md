@@ -8,17 +8,17 @@ ms.topic: concept
 
 # UbeROS Workspace Management and Controls BRD
 
-Version 0.1.0 | Status Draft | Owner jmservera | Related PRD [uberos-init](../prds/uberos-init.md)
+Version 0.1.0 | Status Approved | Owner jmservera | Related PRD [uberos-init](../prds/uberos-init.md)
 ## Progress Tracker
 
 | Phase | Done | Gaps | Updated |
 |-------|------|------|---------|
 | Context | 100% | Initiative framing confirmed | 2026-07-18 |
 | Problem & Drivers | 100% | Bugs-first priority confirmed | 2026-07-18 |
-| Objectives & Metrics | 90% | Targets confirmed (pop-out qualitative) | 2026-07-18 |
+| Objectives & Metrics | 100% | Targets confirmed (pop-out qualitative) | 2026-07-18 |
 | Stakeholders | 100% | Team-level ownership (owner jmservera, delivery Squad) | 2026-07-18 |
 | Scope | 100% | Research vs implement decided per spike | 2026-07-18 |
-| Requirements | 95% | Acceptance criteria ready for validation | 2026-07-18 |
+| Requirements | 100% | Acceptance criteria confirmed | 2026-07-18 |
 
 ## 1. Business Context and Background
 
@@ -79,7 +79,7 @@ These gaps erode trust in the environment and slow the develop-build-test loop.
 | Platform Maintainer | Operator | Service reset, layout, auth configuration |
 | Squad (Morpheus, Neo, Trinity, Switch, Tank) | Delivery team | Design and implementation |
 
-> TODO: Confirm which stakeholder owns/reviews each requirement.
+> Note: per-requirement reviewers are intentionally left unassigned for now.
 
 ## 5. Scope
 

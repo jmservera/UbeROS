@@ -8,16 +8,16 @@ ms.topic: concept
 
 ## UbeROS Simulation and Visualization BRD
 
-Version 0.2.0 | Status Draft | Owner jmservera | Related [Workspace Enhancements BRD](./uberos-workspace-enhancements-brd.md) · [Workspace Management BRD](./uberos-workspace-management-brd.md) · [uberos-init PRD](../prds/uberos-init.md)
+Version 0.2.0 | Status Approved | Owner jmservera | Related [Workspace Enhancements BRD](./uberos-workspace-enhancements-brd.md) · [Workspace Management BRD](./uberos-workspace-management-brd.md) · [uberos-init PRD](../prds/uberos-init.md)
 
 ## Progress Tracker
 
 | Phase | Done | Gaps | Updated |
 |-------|------|------|---------|
-| Context | 90% | New initiative framing confirmed; ties to Enhancements BRD Theme E (GPU spike) | 2026-07-20 |
-| Problem & Drivers | 90% | Four themes confirmed: pluggability, launch menu, ROS integration, web viz | 2026-07-20 |
+| Context | 100% | Initiative framing confirmed; ties to Enhancements BRD Theme E (GPU spike) | 2026-07-20 |
+| Problem & Drivers | 100% | Four themes confirmed: pluggability, launch menu, ROS integration, web viz | 2026-07-20 |
 | Objectives & Metrics | 100% | Web client (gzweb), <300ms latency, concurrency, and persistence confirmed; no image-size budget set | 2026-07-21 |
-| Stakeholders | 80% | Owner jmservera, delivery Squad; per-requirement reviewers TODO | 2026-07-20 |
+| Stakeholders | 100% | Owner jmservera, delivery Squad; reviewers deliberately unassigned | 2026-07-20 |
 | Scope | 95% | Separate-container architecture, concurrent + persistent simulators confirmed | 2026-07-21 |
 | Requirements | 100% | gzweb, latency, concurrency, reload-survival, and /clock default bridge confirmed | 2026-07-21 |
 
@@ -87,7 +87,7 @@ simulator from participating in ROS workflows.
 | Platform Maintainer | Operator | Build-time install set, GPU overlays, image footprint |
 | Squad | Delivery team | Design and implementation |
 
-> TODO: Confirm the reviewer/owner for each requirement theme.
+> Note: per-requirement reviewers are intentionally left unassigned for now.
 
 ## 5. Scope
 
