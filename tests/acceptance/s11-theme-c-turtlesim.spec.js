@@ -2,7 +2,7 @@
 // Verifies the turtlesim noVNC route, ROS topic visibility, and a command-path
 // drivability signal using ROS CLI checks from the ros service container.
 import { test, expect } from '@playwright/test';
-import { execInService, getSimulators, ensureSimulatorNoVncReady } from '../helpers/stack.js';
+import { execInService, getSimulators } from '../helpers/stack.js';
 
 // Branch policy for FR-C3 in this closure: deterministic readiness is proven by
 // noVNC route reachability + turtlesim node graph visibility + ROS baseline topics.
@@ -18,11 +18,12 @@ async function ensureTurtlesimRunning(request) {
 
   if (turtlesim.state !== 'running') {
     const launch = await request.post('/control/simulators/turtlesim/launch');
-    // 404 => the simulators profile is inactive / the container was never
-    // created, so the readiness poll below could only time out; skip with a
-    // clear reason. Otherwise require the documented 200 so a real launch
-    // failure surfaces deterministically instead of as an opaque timeout.
-    test.skip(launch.status() === 404, 'turtlesim container not created (simulators profile inactive)');
+    // 404 => the turtlesim container was never created (e.g. omitted from
+    // UBEROS_SIMULATORS for this build), so the readiness poll below could
+    // only time out; skip with a clear reason. Otherwise require the
+    // documented 200 so a real launch failure surfaces deterministically
+    // instead of as an opaque timeout.
+    test.skip(launch.status() === 404, 'turtlesim container not created (not in UBEROS_SIMULATORS)');
     expect(launch.status()).toBe(200);
   }
 
@@ -66,6 +67,12 @@ test.describe('S11 - Theme C turtlesim deterministic evidence', () => {
   test('FR-C2/FR-C3: noVNC route is reachable and turtlesim node joins ROS graph', async ({ request }) => {
     test.setTimeout(180_000);
     await ensureTurtlesimRunning(request);
+    // FR-C2: the turtlesim noVNC route must serve (200) once the container is up.
+    await expect
+      .poll(async () => (await request.get('/sim/turtlesim/novnc/')).status(), {
+        timeout: 30_000,
+      })
+      .toBe(200);
     assertFrC3DeterministicSignal();
   });
 

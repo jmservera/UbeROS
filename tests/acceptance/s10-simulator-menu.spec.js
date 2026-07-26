@@ -8,11 +8,8 @@ import { test, expect } from '@playwright/test';
 import { ensureSimulatorRunning, pollSimulatorState, getSimulators } from '../helpers/stack.js';
 
 async function getSimulatorState(request, id) {
-  const res = await request.get('/control/simulators');
-  if (!res.ok()) return 'unknown';
-  const { simulators } = await res.json();
-  const sim = simulators.find((s) => s.id === id);
-  return sim?.state ?? 'missing';
+  const simulators = await getSimulators(request);
+  return simulators.find((s) => s.id === id)?.state ?? 'missing';
 }
 
 test.describe('S10 - simulator menu and lifecycle', () => {

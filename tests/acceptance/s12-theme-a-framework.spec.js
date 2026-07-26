@@ -85,10 +85,11 @@ test.describe('S12 - Theme A framework deterministic evidence', () => {
 
     try {
       const stop = await request.post('/control/simulators/turtlesim/stop');
-      // 404 => turtlesim container not created (simulators profile inactive);
-      // the ROS-graph and relaunch assertions below could then only time out,
-      // so skip with a clear reason. Otherwise require the documented 200.
-      test.skip(stop.status() === 404, 'turtlesim container not created (simulators profile inactive)');
+      // 404 => turtlesim container not created (e.g. omitted from
+      // UBEROS_SIMULATORS for this build); the ROS-graph and relaunch
+      // assertions below could then only time out, so skip with a clear
+      // reason. Otherwise require the documented 200.
+      test.skip(stop.status() === 404, 'turtlesim container not created (not in UBEROS_SIMULATORS)');
       expect(stop.status()).toBe(200);
 
       await expect

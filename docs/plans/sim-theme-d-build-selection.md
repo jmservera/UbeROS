@@ -1,4 +1,4 @@
-# Theme D — Build-time simulator selection
+# Theme D — Runtime simulator selection
 
 > Plan stub. Source of truth: [Simulation & Visualization PRD](../prds/uberos-simulation-visualization.md) §7.4.
 

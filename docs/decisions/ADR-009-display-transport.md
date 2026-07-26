@@ -11,7 +11,7 @@ ms.topic: concept
 - Status: Accepted, partially superseded for Gazebo by Theme F implementation
 - Implementation (historical baseline): `services/simulator` (Xvfb `:99`, `LIBGL_ALWAYS_SOFTWARE=1`) + `services/vnc` (x11vnc/noVNC sidecar sharing the sim netns)
 - Supersession context: Gazebo now uses `services/gazebo` scene-state streaming through `/gzweb/` and `/gzweb/ws/`; noVNC transport remains active for `turtlesim` via `/sim/turtlesim/novnc/`
-  Implementation: `services/gazebo` (headless `gz sim -s` + gz-launch WebsocketServer on :9002) streamed to the self-hosted `services/gazebo/client` (gzweb SceneManager + Three.js) served by `services/gzweb-client`, wired through the proxy at `/gzweb/` + `/gzweb/ws/`; `services/turtlesim` (Xvfb + turtlesim_node + x11vnc + websockify) still uses noVNC at `/sim/turtlesim/novnc/`. The retired `services/simulator` (Xvfb `gz sim`) + `services/vnc` noVNC-for-Gazebo path and the `/novnc` route are gone.
+  Implementation: `services/gazebo` (headless `gz sim -s` + gz-launch WebsocketServer on :9002) streamed to the self-hosted `services/gazebo/client` (gzweb SceneManager + Three.js) served as the `gzweb-client` compose service, wired through the proxy at `/gzweb/` + `/gzweb/ws/`; `services/turtlesim` (Xvfb + turtlesim_node + x11vnc + websockify) still uses noVNC at `/sim/turtlesim/novnc/`. The retired `services/simulator` (Xvfb `gz sim`) + `services/vnc` noVNC-for-Gazebo path and the `/novnc` route are gone.
 - Date: 2026-07-19
 - Deciders: jmservera (product), Neo, Trinity (technical)
 - Related: PRD FR-E1..E3 (G-006), BRD Theme E (BR-GPU-1..3), spike PR #5, issue #12, docs/specs/04-gazebo-gpu-wsl2-research.md, ADR-002 (proxy)
