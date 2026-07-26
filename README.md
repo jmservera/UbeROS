@@ -1,14 +1,16 @@
 ---
-title: UbeROS
+title: ÜbeROS
 description: Browser-accessible ROS development and simulation environment running on Docker Compose.
 author: UbeROS Team
 ms.date: 2026-07-23
 ms.topic: overview
 ---
 
-## UbeROS
+## ÜbeROS
 
 > A browser-accessible ROS development and simulation environment on Docker Compose.
+
+![ÜbeROS logo](docs/images/logo.png)
 
 UbeROS delivers a complete, containerized ROS 2 workspace, physics simulator,
 browser code editor, terminals, and a canvas window manager, reachable from a

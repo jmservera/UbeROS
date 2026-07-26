@@ -163,6 +163,7 @@ exercise the installer without first publishing packages.
 | BR-012 | The running system reports its release version to the user. | BO-7 | End user, Platform Maintainer | The active release version is visible (UI and/or CLI) and matches the installed release. | Should |
 | BR-013 | Released packages include integrity checksums that the installer can verify before use. | BO-2 | Platform Maintainer | The installer detects and rejects an artifact whose checksum does not match the published value. | Should |
 | BR-014 | The installer supports Linux, macOS, and WSL. | BO-1, BO-4 | End user | The installer completes and starts the stack on Linux, macOS, and WSL environments. | Should |
+| BR-015 | Optional package/sample-content selections (e.g., turtlesim and other learning packages, ROS/vscode tooling per Issues #19 and #30) are configurable at install/build time rather than by hand-editing files. | BO-6 | ROS Developer | The installer exposes documented options that include/exclude the optional package sets; selections are honored in the running stack. | Should |
 | BR-016 | The release covers x86_64 hosts including the GPU overlays (`compose.override.{wsl,intel,gpu}.yaml`); ARM/Apple-silicon are not targeted this iteration. | BO-1 | Platform Maintainer | Release-mode and local-mode installs work on x86_64 with the GPU overlays; ARM/Apple-silicon are documented as unsupported for now. | Should |
 
 ## 8. Data and Artifact Requirements
