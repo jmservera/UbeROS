@@ -172,6 +172,17 @@ docker compose up -d --build proxy control
 With auth enabled the workspace menu shows a **Logout** action that clears the
 stored credentials and forces re-authentication.
 
+## Platform support
+
+UbeROS currently targets **x86_64** hosts (Linux, Windows via WSL2, and Intel
+macOS), including the GPU overlays (`compose.override.{wsl,intel,gpu}.yaml`).
+
+**ARM and Apple-silicon (arm64) are not yet supported.** We plan to cover them in
+a later iteration and would welcome help: if you run on **Apple silicon** (M-series)
+or other arm64 hardware, please try the stack and report what builds, what fails,
+and any image/driver workarounds by opening an issue. Contributions and test
+reports for Apple-silicon support are especially appreciated.
+
 ## Documentation
 
 - Project brief: [docs/specs/01-Init.md](docs/specs/01-Init.md)
