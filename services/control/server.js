@@ -380,7 +380,14 @@ function simulatorState(container) {
     return 'running';
   }
   if (state === 'created' || state === 'restarting') return 'starting';
-  if (state === 'exited') return /Exited \(0\)/.test(status) ? 'stopped' : 'failed';
+  if (state === 'exited') {
+    // Docker stop commonly yields signal exit codes (e.g. 143 SIGTERM, 137
+    // SIGKILL after timeout). Treat those as user-requested stop, not failure.
+    // Also tolerate empty/variant Status text seen right after transitions.
+    if (/Exited \((0|130|137|143)\)/.test(status)) return 'stopped';
+    if (/Exited \(([1-9]\d*)\)/.test(status)) return 'failed';
+    return 'stopped';
+  }
   if (state === 'dead') return 'failed';
   return 'unknown';
 }
@@ -461,7 +468,7 @@ const server = http.createServer(async (req, res) => {
 
     // POST /simulators/{id}/launch — start an installed simulator (FR-B2). The
     // id is allowlisted against the registry (403 if unknown), and its container
-    // must exist (404 if the `simulators` profile is inactive).
+    // must exist (404 if the simulator's container was not created).
     const simLaunch = path.match(/^\/simulators\/([A-Za-z0-9_.-]+)\/launch$/);
     if (req.method === 'POST' && simLaunch) {
       const id = simLaunch[1];

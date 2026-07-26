@@ -27,3 +27,6 @@ workspace/install/
 workspace/log/
 .env
 build*.log
+
+.playwright-mcp/
+test-results/.last-run.json

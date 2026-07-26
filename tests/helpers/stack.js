@@ -11,9 +11,11 @@ export const SERVICES = [
   'discovery-server',
   'ros',
   'gazebo',
+  'gzweb-client',
   'turtlesim',
   'editor',
   'frontend',
+  'control',
   'proxy',
 ];
 
@@ -39,6 +41,109 @@ export function execInService(service, shellCommand) {
     ['compose', 'exec', '-T', service, 'sh', '-c', shellCommand],
     { cwd: REPO_ROOT, encoding: 'utf8' }
   );
+}
+
+// Ensure a simulator's compose service is running before a test that streams
+// it. Simulators are now treated as always-on via the UBEROS_SIMULATORS
+// environment variable; this brings the named service up idempotently so the
+// noVNC/gzweb stream has a live backend. Returns the current docker health
+// value for the service (it may still be starting).
+export function ensureSimulatorRunning(service) {
+  execFileSync(
+    'docker',
+    ['compose', 'up', '-d', service],
+    { cwd: REPO_ROOT, encoding: 'utf8' }
+  );
+  return healthSnapshot()[service];
+}
+
+export async function getSimulators(request) {
+  const res = await request.get('/control/simulators');
+  if (!res.ok()) {
+    throw new Error(`GET /control/simulators failed with status ${res.status()}`);
+  }
+  const body = await res.json();
+  return body.simulators ?? [];
+}
+
+export async function pollSimulatorState(
+  request,
+  id,
+  states,
+  timeoutMs = 90_000,
+  intervalMs = 2_000
+) {
+  const deadline = Date.now() + timeoutMs;
+  let last = 'missing';
+
+  while (Date.now() < deadline) {
+    const sims = await getSimulators(request);
+    last = sims.find((s) => s.id === id)?.state ?? 'missing';
+    if (states.includes(last)) {
+      return last;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  return last;
+}
+
+export async function waitForNoVncRoute(
+  request,
+  path,
+  timeoutMs = 45_000,
+  intervalMs = 2_000
+) {
+  const deadline = Date.now() + timeoutMs;
+  let lastStatus = 0;
+
+  while (Date.now() < deadline) {
+    const res = await request.get(path);
+    lastStatus = res.status();
+    if (lastStatus === 200) {
+      return lastStatus;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  return lastStatus;
+}
+
+export async function ensureSimulatorNoVncReady(
+  request,
+  id,
+  noVncPath,
+  timeoutMs = 210_000
+) {
+  ensureSimulatorRunning(id);
+  const deadline = Date.now() + timeoutMs;
+
+  // Ask the control plane to launch the simulator in case it was intentionally
+  // stopped by prior lifecycle tests in the same full-suite run.
+  // NOTE: this helper requires a successful (200) launch response. Older
+  // tests that exercised a retired/removed launch route used to tolerate
+  // 404 here; that behaviour is now explicit in those specs (e.g. S13).
+  const launch = await request.post(`/control/simulators/${id}/launch`);
+  if (launch.status() !== 200) {
+    throw new Error(
+      `POST /control/simulators/${id}/launch failed with status ${launch.status()} (expected 200)`
+    );
+  }
+
+  const state = await pollSimulatorState(
+    request,
+    id,
+    ['starting', 'running'],
+    Math.max(0, deadline - Date.now())
+  );
+  if (!['starting', 'running'].includes(state)) {
+    throw new Error(`Simulator ${id} did not reach starting/running; last state: ${state}`);
+  }
+
+  const noVncStatus = await waitForNoVncRoute(request, noVncPath, Math.max(0, deadline - Date.now()));
+  if (noVncStatus !== 200) {
+    throw new Error(`${noVncPath} did not become ready; last status: ${noVncStatus}`);
+  }
 }
 
 // Poll a noVNC canvas until more than `threshold` of pixels are non-black or the

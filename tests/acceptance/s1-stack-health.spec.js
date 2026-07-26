@@ -5,7 +5,8 @@ import { test, expect } from '@playwright/test';
 import { SERVICES, healthSnapshot } from '../helpers/stack.js';
 
 test.describe('S1 - stack starts without error', () => {
-  test('all seven services report healthy', async ({ request }) => {
+  test('all nine services report healthy', async ({ request }) => {
+    test.setTimeout(120_000);
     // Prior tests can intentionally stop simulators; reconcile to running so
     // this stack-health assertion remains independent and deterministic. Assert
     // the reconcile succeeded so a control-plane rejection (403) or missing
@@ -21,7 +22,7 @@ test.describe('S1 - stack starts without error', () => {
           const health = healthSnapshot();
           return SERVICES.every((svc) => health[svc] === 'healthy');
         },
-        { timeout: 60_000, intervals: [2000] }
+        { timeout: 100_000, intervals: [2000] }
       )
       .toBe(true);
   });

@@ -1,13 +1,22 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!--
-  Fast DDS Discovery Server client profile.
+  Fast DDS Discovery Server SUPER_CLIENT profile (ros service).
 
   Docker bridge networks do not reliably carry the multicast traffic that
   default DDS discovery relies on, which causes ROS nodes in separate
   containers to silently fail to find each other (research RISK-4).
 
-  This profile points every ROS-capable container at the central
-  discovery-server so node/topic discovery works over unicast.
+  This profile points the ros container's participants at the central
+  discovery-server so node/topic discovery works over unicast. It uses
+  SUPER_CLIENT (not CLIENT) because this container runs the introspection
+  surface — rosbridge, rosapi, and the ros2 CLI daemon — which must observe the
+  ENTIRE ROS graph (every node, topic, and service), not just the endpoints it
+  happens to match. A plain CLIENT only receives discovery data for endpoints
+  that match its own readers/writers, so rosapi's services never propagated to
+  rosbridge (`/rosapi/topics does not exist`) and the ROS Status panel's node
+  query failed. A SUPER_CLIENT receives the full graph the server relays,
+  restoring rosapi/rosbridge introspection (S3) while other containers stay
+  lightweight CLIENTs.
 -->
 <dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
   <profiles>
@@ -15,7 +24,7 @@
       <rtps>
         <builtin>
           <discovery_config>
-            <discoveryProtocol>CLIENT</discoveryProtocol>
+            <discoveryProtocol>SUPER_CLIENT</discoveryProtocol>
             <discoveryServersList>
               <!-- Fast DDS 3.x (ROS Kilted): discoveryServersList children are
                    <locator> elements directly. The pre-3.x

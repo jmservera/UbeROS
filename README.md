@@ -22,8 +22,9 @@ standard web browser with no local install beyond Docker.
 docker compose up
 ```
 
-Then open <http://localhost:8080>. The window-manager canvas loads with four
-panels: Simulator (gzweb), Terminal, Code Editor, and ROS Status.
+Then open <http://localhost:8080>. The window-manager canvas loads with
+Terminal, Code Editor, and ROS Status panels, plus a **Simulators** menu to
+launch Gazebo (rendered in the browser via gzweb) or Turtlesim on demand.
 
 To run detached:
 
@@ -40,7 +41,7 @@ docker compose down
 To rebuild the full stack and run tests in one line from the repository root:
 
 ```bash
-docker compose down && docker compose build --parallel && docker compose up -d --remove-orphans && npm --prefix tests test
+docker compose down && docker compose build --parallel && docker compose up -d --remove-orphans && npm test --prefix tests
 ```
 
 > **Warning:** `docker compose down -v` deletes the named volumes, including your
@@ -53,12 +54,16 @@ docker compose down && docker compose build --parallel && docker compose up -d -
 | `proxy` | Single ingress (Nginx); the only host-published port | 8080 |
 | `frontend` | Svelte + Golden Layout window manager | 3000 |
 | `ros` | ROS 2 middleware, rosbridge, ttyd terminals, colcon | 9090, 7681 |
-| `gazebo` | Headless Gazebo (`gz sim -s`) + WebSocket scene-state stream | 9002 |
-| `turtlesim` | Xvfb + turtlesim + noVNC stream | 6080 |
+| `gazebo` | Headless `gz sim -s` + gz-launch WebsocketServer (scene-state stream) + `ros_gz` bridge | 9002 |
+| `gzweb-client` | Self-hosted gzweb web client (Three.js), served at `/gzweb/` | 3000 |
+| `turtlesim` | Turtlesim + Xvfb + x11vnc + noVNC (GUI simulator over VNC) | 5900, 6080 |
 | `editor` | code-server on the shared ROS workspace | 8443 |
-| `control` | Operational control plane (per-service reset, workspace config) | 9000 |
+| `control` | Operational control plane (service reset, simulator launch/stop, config) | 9000 |
 | `discovery-server` | Fast DDS discovery (removes multicast dependency) | 11811 |
 
+The simulator services (`gazebo`, `gzweb-client`, `turtlesim`) are always-on and
+start with the stack; which simulators the menu offers is gated at runtime by
+`UBEROS_SIMULATORS` (see [Simulator selection](#simulator-selection)).
 Only the proxy port is published to the host. Backend ports are reachable only
 through the proxy.
 
@@ -74,12 +79,41 @@ Settings live in `.env` (committed defaults contain no secrets):
 | `ROS_DOMAIN_ID` | `42` | DDS domain (cross-platform-safe range) |
 | `UBEROS_AUTH` | `off` | Set to `basic` to enable proxy authentication |
 | `UBEROS_SERVICES` | `ros,gazebo,editor,frontend` | Services the system menu may reset |
+| `NPM_REGISTRY` | public npm | npm registry for image builds; point at a proxy in `.env` |
 
-Route and transport contract:
+### Simulators (runtime)
 
-* Gazebo uses `gzweb` scene-state streaming through `/gzweb/` and `/gzweb/ws/`
-* Turtlesim uses noVNC through `/sim/turtlesim/novnc/`
-* Compose defaults include both `gazebo` and `turtlesim` as enabled simulator services
+Simulators are launched on demand from the **Simulators** menu and run
+concurrently, each as its own container; they survive a browser reload (the
+panel reconnects to the still-running simulator). By default both start with the
+stack and can be stopped/relaunched from the menu.
+
+| Simulator | Visualization | ROS integration |
+|---|---|---|
+| **Gazebo** | Browser 3D via `gzweb` (headless `gz sim -s` streams scene state over a WebSocket; no VNC) | `ros_gz` bridge, `/clock` bridged by default |
+| **Turtlesim** | noVNC (Xvfb + x11vnc GUI window) | Native ROS 2 node (`/turtle1/cmd_vel`, `/turtle1/pose`) |
+
+All simulators join the shared `ROS_DOMAIN_ID` through the Fast DDS discovery
+server (no multicast).
+
+### Simulator selection
+
+Which simulators the menu offers is selected at runtime by a single setting in
+`.env` (the default installs and shows **both** Gazebo and Turtlesim):
+
+- `UBEROS_SIMULATORS`: comma-separated registry ids the control plane installs
+  and the menu offers. Omit a simulator to exclude it: its menu entry disappears
+  and its launch/stop requests are rejected. The simulator services are
+  always-on (there are no compose profiles); this setting gates the registry and
+  menu, not the build.
+
+| Selection | `UBEROS_SIMULATORS` |
+|---|---|
+| Both (default) | `gazebo,turtlesim` *(or unset)* |
+| Gazebo only | `gazebo` |
+| Turtlesim only | `turtlesim` |
+
+Verify the installed set with `curl -s http://localhost:8080/control/simulators`.
 
 ### GPU acceleration (opt-in)
 
@@ -111,7 +145,8 @@ path is used there. Load only one GPU overlay at a time.
 1. Edit a package in the **Code Editor** panel (`workspace/src/`).
 2. In a **Terminal** panel: `cd /ros_ws && colcon build --symlink-install`.
 3. `source install/setup.bash`, then `ros2 run <pkg> <node>`.
-4. Observe the result in the **Simulator** and **ROS Status** panels.
+4. Launch a simulator from the **Simulators** menu (Gazebo web view or
+   Turtlesim) and observe the result there and in the **ROS Status** panel.
 
 ### Terminal copy and paste
 
@@ -141,7 +176,8 @@ stored credentials and forces re-authentication.
 
 - Project brief: [docs/specs/01-Init.md](docs/specs/01-Init.md)
 - Research report: [docs/specs/01-Init-research.md](docs/specs/01-Init-research.md)
-- PRD: [docs/prds/uberos-init.md](docs/prds/uberos-init.md)
+- PRD (init): [docs/prds/uberos-init.md](docs/prds/uberos-init.md)
+- Simulation & Visualization: [BRD](docs/brds/uberos-simulation-visualization-brd.md) · [PRD](docs/prds/uberos-simulation-visualization.md)
 - Decisions: [docs/decisions/](docs/decisions/)
 
 > **Note:** The primary ROS distribution (Kilted) passed SPIKE-A image and

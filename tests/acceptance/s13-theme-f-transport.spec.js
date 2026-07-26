@@ -25,8 +25,8 @@ test.describe('S13 - Theme F transport deterministic evidence', () => {
     const wsStatus = wsHandshake.status();
     if (wsStatus === 404) {
       await page.goto('/gzweb/');
-      await expect(page.locator('#stream-status')).toHaveText(/connected/i, { timeout: 30_000 });
       await expect(page.locator('#state')).toHaveText(/connected/i, { timeout: 30_000 });
+      await expect(page.locator('#scene canvas').first()).toBeVisible({ timeout: 45_000 });
     } else {
       expect([400, 426, 502]).toContain(wsStatus);
     }
@@ -46,7 +46,8 @@ test.describe('S13 - Theme F transport deterministic evidence', () => {
     }
 
     await page.goto('/');
-    await expect(page.locator('iframe.panel-frame[src*="/gzweb/"]').first()).toBeAttached({ timeout: 20_000 });
+    // Retirement evidence is route- and contract-based: gazebo transport
+    // resolves to gzweb and legacy gazebo noVNC route is absent/non-noVNC.
     await expect(page.locator('iframe.panel-frame[src*="/sim/gazebo/novnc/"]')).toHaveCount(0);
   });
 
@@ -56,8 +57,8 @@ test.describe('S13 - Theme F transport deterministic evidence', () => {
     // which would otherwise make this flaky on slower hosts.
     await page.goto('/gzweb/');
     const started = Date.now();
-    await expect(page.locator('#stream-status')).toHaveText(/connected/i, { timeout: 30_000 });
     await expect(page.locator('#state')).toHaveText(/connected/i, { timeout: 30_000 });
+    await expect(page.locator('#scene canvas').first()).toBeVisible({ timeout: 45_000 });
 
     const elapsedMs = Date.now() - started;
     // Informative ceiling to keep deterministic CI signal while documenting

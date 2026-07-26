@@ -26,6 +26,7 @@ RUN apt-get update \
         python3-vcstool \
         ros-${ROS_DISTRO}-rosbridge-suite \
         ros-${ROS_DISTRO}-rosapi \
+        ros-${ROS_DISTRO}-turtlesim \
         procps \
         tmux \
         curl \

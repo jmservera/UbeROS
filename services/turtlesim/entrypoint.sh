@@ -9,10 +9,26 @@ set -euo pipefail
 
 DISPLAY_NUM="${DISPLAY:-:99}"
 
+wait_for_tcp_port() {
+  local host="$1"
+  local port="$2"
+  local retries="${3:-60}"
+  local delay_seconds="${4:-0.5}"
+
+  for _ in $(seq 1 "${retries}"); do
+    if bash -c "echo > /dev/tcp/${host}/${port}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep "${delay_seconds}"
+  done
+  return 1
+}
+
 # Start the virtual framebuffer. turtlesim's canvas is a fixed 500x500 window;
 # a slightly larger framebuffer leaves room for the window manager to place it.
 # -ac disables host access control so x11vnc can attach without an xauth cookie.
 Xvfb "${DISPLAY_NUM}" -screen 0 640x640x24 -ac >/tmp/xvfb.log 2>&1 &
+XVFB_PID=$!
 
 # Wait for the X server to accept connections before launching the GUI.
 for _ in $(seq 1 30); do
@@ -36,6 +52,7 @@ set -u
 # and noVNC shows a black desktop with a stray window. Openbox undecorates and
 # maximizes it so the turtle fills the framebuffer (mirrors the vnc sidecar).
 DISPLAY="${DISPLAY_NUM}" openbox --config-file /etc/openbox-rc.xml &
+OPENBOX_PID=$!
 
 # Launch turtlesim on the shared ROS domain via the discovery server. It runs
 # in the foreground's background here; x11vnc/websockify follow. Topics
@@ -56,6 +73,13 @@ x11vnc \
   -forever \
   -shared \
   >/tmp/x11vnc.log 2>&1 &
+X11VNC_PID=$!
+
+# Ensure the VNC endpoint is listening before exposing websockify/noVNC.
+if ! wait_for_tcp_port localhost 5900 60 0.5; then
+  echo "x11vnc did not become ready on localhost:5900; see /tmp/x11vnc.log" >&2
+  exit 1
+fi
 
 # Forward termination to the turtlesim node for a clean shutdown.
 # Keep websockify in the background so PID 1 can trap TERM/INT and stop both processes.
@@ -66,6 +90,33 @@ websockify \
   localhost:5900 &
 WEBSOCKIFY_PID=$!
 
-trap 'kill -TERM "${TURTLE_PID}" "${WEBSOCKIFY_PID}" 2>/dev/null || true' TERM INT
+SHUTDOWN_REQUESTED=0
 
-wait -n "${TURTLE_PID}" "${WEBSOCKIFY_PID}"
+cleanup() {
+  kill -TERM \
+    "${TURTLE_PID}" \
+    "${WEBSOCKIFY_PID}" \
+    "${X11VNC_PID}" \
+    "${OPENBOX_PID}" \
+    "${XVFB_PID}" \
+    2>/dev/null || true
+}
+
+on_shutdown() {
+  SHUTDOWN_REQUESTED=1
+  cleanup
+}
+
+trap on_shutdown TERM INT
+trap cleanup EXIT
+
+set +e
+wait -n "${TURTLE_PID}" "${WEBSOCKIFY_PID}" "${X11VNC_PID}"
+EXIT_CODE=$?
+set -e
+
+if [ "${SHUTDOWN_REQUESTED}" -eq 1 ]; then
+  exit 0
+fi
+
+exit "${EXIT_CODE}"

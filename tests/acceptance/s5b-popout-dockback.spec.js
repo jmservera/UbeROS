@@ -7,8 +7,9 @@
 // event on the child's layout; the parent BrowserPopout re-docks the panel into
 // the MAIN canvas and — because settings.popInOnClose is false — closes the
 // popout window. This path uses GL's `popIn` event, NOT `beforeunload`, so it
-// works for ALL panels including the passive ones (Simulator, ROS Status) that
-// never receive a user gesture.
+// works for ALL panels including passive ones (like ROS Status) that never
+// receive a user gesture. NOTE: the Simulator panel is no longer a built-in
+// panel and is not exercised here (see PANELS below).
 //
 // This supersedes the OLD auto-dock-back-ON-CLOSE model: closing the popout via
 // the OS "X" (or window.close()) NO LONGER docks the panel back — it just leaves
@@ -27,7 +28,6 @@ import { test, expect } from '@playwright/test';
 //  - ros-status:    a .panel-body element (non-iframe)
 // `title` is the Golden Layout tab title (.lm_title) used to find the stack.
 const PANELS = [
-  { key: 'simulator', title: 'Simulator', kind: 'iframe', match: '/gzweb/' },
   { key: 'terminal', title: 'Terminal', kind: 'iframe', match: '/terminal/' },
   { key: 'editor', title: 'Code Editor', kind: 'iframe', match: '/editor/' },
   { key: 'ros-status', title: 'ROS Status', kind: 'body', match: null },
@@ -50,12 +50,14 @@ function measurePanel(spec) {
   return { count: els.length, w: el.offsetWidth, h: el.offsetHeight };
 }
 
-// Wait until the default layout has fully rendered: all three iframe panels
-// plus the ROS Status body. Guards against popping out before GL is ready.
+// Wait until the default layout has fully rendered: both iframe panels (editor,
+// terminal) plus the ROS Status body. Simulators are no longer a built-in
+// panel (opened on demand from the Simulators menu), so the default layout
+// carries two iframes, not three. Guards against popping out before GL is ready.
 async function waitForAllPanels(page) {
   await page.waitForFunction(
     () =>
-      document.querySelectorAll('iframe.panel-frame').length >= 3 &&
+      document.querySelectorAll('iframe.panel-frame').length >= 2 &&
       document.querySelectorAll('.panel-body').length >= 1,
     undefined,
     { timeout: 30_000 }

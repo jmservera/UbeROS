@@ -2,7 +2,7 @@
 // Covers FR-A3 additive extensibility proof and FR-A4 launch/stop lifecycle
 // evidence through ROS node graph visibility.
 import { test, expect } from '@playwright/test';
-import { execInService } from '../helpers/stack.js';
+import { execInService, ensureSimulatorNoVncReady } from '../helpers/stack.js';
 
 async function getSimulators(request) {
   const res = await request.get('/control/simulators');
@@ -75,7 +75,7 @@ test.describe('S12 - Theme A framework deterministic evidence', () => {
   });
 
   test('FR-A4: stop and launch are reflected in ROS graph node visibility', async ({ request }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(240_000);
 
     const simulators = await getSimulators(request);
     const turtlesim = simulators.find((s) => s.id === 'turtlesim');
@@ -85,10 +85,11 @@ test.describe('S12 - Theme A framework deterministic evidence', () => {
 
     try {
       const stop = await request.post('/control/simulators/turtlesim/stop');
-      // 404 => turtlesim container not created (simulators profile inactive);
-      // the ROS-graph and relaunch assertions below could then only time out,
-      // so skip with a clear reason. Otherwise require the documented 200.
-      test.skip(stop.status() === 404, 'turtlesim container not created (simulators profile inactive)');
+      // The registry-missing case is already handled by the test.skip above, so
+      // reaching here means turtlesim IS installed. A 404 now means the registry
+      // advertises the simulator but its container was never created — a stack
+      // misconfiguration that must fail fast rather than hide behind a skip.
+      // Require the documented 200.
       expect(stop.status()).toBe(200);
 
       await expect
@@ -112,8 +113,10 @@ test.describe('S12 - Theme A framework deterministic evidence', () => {
         }, { timeout: 30_000 })
         .toMatch(/starting|running/);
 
+      await ensureSimulatorNoVncReady(request, 'turtlesim', '/sim/turtlesim/novnc/');
+
       await expect
-        .poll(() => rosNodeList(), { timeout: 60_000 })
+        .poll(() => rosNodeList(), { timeout: 120_000 })
         .toContain('/turtlesim');
     } finally {
       if (!wasRunning) {

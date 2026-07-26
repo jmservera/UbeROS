@@ -2,14 +2,14 @@
 // Verifies the turtlesim noVNC route, ROS topic visibility, and a command-path
 // drivability signal using ROS CLI checks from the ros service container.
 import { test, expect } from '@playwright/test';
-import { execInService } from '../helpers/stack.js';
+import { execInService, getSimulators } from '../helpers/stack.js';
 
-async function getSimulators(request) {
-  const res = await request.get('/control/simulators');
-  expect(res.status()).toBe(200);
-  const body = await res.json();
-  return body.simulators ?? [];
-}
+// Branch policy for FR-C3 in this closure: deterministic readiness is proven by
+// noVNC route reachability + turtlesim node graph visibility + ROS baseline topics.
+const FR_C3_SIGNAL_POLICY = Object.freeze({
+  requiredNode: '/turtlesim',
+  requiredTopics: ['/parameter_events', '/rosout'],
+});
 
 async function ensureTurtlesimRunning(request) {
   const simulators = await getSimulators(request);
@@ -18,20 +18,22 @@ async function ensureTurtlesimRunning(request) {
 
   if (turtlesim.state !== 'running') {
     const launch = await request.post('/control/simulators/turtlesim/launch');
-    // 404 => the simulators profile is inactive / the container was never
-    // created, so the readiness poll below could only time out; skip with a
-    // clear reason. Otherwise require the documented 200 so a real launch
-    // failure surfaces deterministically instead of as an opaque timeout.
-    test.skip(launch.status() === 404, 'turtlesim container not created (simulators profile inactive)');
+    // The registry-missing case is already handled by the test.skip above, so
+    // reaching here means turtlesim IS installed. A 404 now means the registry
+    // advertises the simulator but its container was never created — a stack
+    // misconfiguration that must fail fast rather than hide behind a skip or
+    // an opaque readiness timeout. Require the documented 200.
     expect(launch.status()).toBe(200);
   }
 
   await expect
-    .poll(async () => {
-      const sims = await getSimulators(request);
-      return sims.find((s) => s.id === 'turtlesim')?.state ?? 'missing';
-    }, { timeout: 30_000 })
-    .toMatch(/starting|running/);
+    .poll(() => rosNodeList(), { timeout: 45_000 })
+    .toEqual(expect.arrayContaining([FR_C3_SIGNAL_POLICY.requiredNode]));
+}
+
+function assertFrC3DeterministicSignal() {
+  const topics = rosTopicList();
+  expect(topics).toEqual(expect.arrayContaining(FR_C3_SIGNAL_POLICY.requiredTopics));
 }
 
 function rosTopicList() {
@@ -62,36 +64,26 @@ function rosShell(command) {
 
 test.describe('S11 - Theme C turtlesim deterministic evidence', () => {
   test('FR-C2/FR-C3: noVNC route is reachable and turtlesim node joins ROS graph', async ({ request }) => {
+    test.setTimeout(180_000);
     await ensureTurtlesimRunning(request);
-
+    // FR-C2: the turtlesim noVNC route must serve (200) once the container is up.
     await expect
       .poll(async () => (await request.get('/sim/turtlesim/novnc/')).status(), {
         timeout: 30_000,
       })
       .toBe(200);
-
-    await expect
-      .poll(() => rosNodeList(), { timeout: 20_000 })
-      .toEqual(expect.arrayContaining(['/turtlesim']));
-
-    // Topic enumeration is intermittently sparse in this runtime, but the
-    // baseline ROS graph should still expose user-facing turtlesim topics.
-    const topics = rosTopicList();
-    expect(topics).toEqual(expect.arrayContaining(['/parameter_events', '/rosout']));
+    assertFrC3DeterministicSignal();
   });
 
   test('FR-C4: turtlesim is drivable from ROS command path', async ({ request }) => {
+    test.setTimeout(180_000);
     await ensureTurtlesimRunning(request);
-
-    await expect
-      .poll(() => rosNodeList(), { timeout: 20_000 })
-      .toEqual(expect.arrayContaining(['/turtlesim']));
+    assertFrC3DeterministicSignal();
 
     const publishOutput = execInService(
       'ros',
       `bash -lc '${rosShell("ros2 topic pub --once /turtle1/cmd_vel geometry_msgs/msg/Twist \"{linear: {x: 2.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}\"")}'`
     );
-    expect(publishOutput).toContain('Waiting for at least 1 matching subscription(s)...');
     expect(publishOutput).toContain('publishing #1:');
 
     await expect

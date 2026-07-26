@@ -10,7 +10,7 @@ FROM node:20-alpine AS build
 ARG NPM_REGISTRY=https://registry.npmjs.org/
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm config set registry "$NPM_REGISTRY" && npm install
+RUN npm config set registry "$NPM_REGISTRY" && npm ci
 COPY . .
 RUN npm run build
 
