@@ -2,7 +2,7 @@
 title: UbeROS Simulation and Visualization Product Requirements Document
 description: Product requirements for pluggable simulators, runtime lifecycle controls, ROS integration, and Theme F Gazebo web visualization.
 author: jmservera
-ms.date: 2026-07-23
+ms.date: 2026-07-26
 ms.topic: concept
 ---
 
@@ -19,15 +19,17 @@ Version 1.0.0 | Status Approved | Owner jmservera | Team Squad | Target Next ite
 | Scope | 90% | Separate-container, concurrent, persistent, build-selectable confirmed | 2026-07-21 |
 | Requirements | 90% | FR/NFR across six themes incl. auto-start (FR-B8) + ros-image cleanup (FR-E6) | 2026-07-21 |
 | Metrics & Risks | 90% | gzweb path confirmed for Ionic; client=minimal, pairing kilted/ionic locked | 2026-07-21 |
-| Operationalization | 90% | Lifecycle design approved: always-on services + allowlisted start/stop; configurable auto-start, default both on (planned) | 2026-07-21 |
+| Operationalization | 100% | Implemented: always-on services + allowlisted control-plane start/stop; configurable auto-start, default both on | 2026-07-26 |
 | Finalization | 100% | Approved 2026-07-21; all questions resolved; ready for implementation | 2026-07-21 |
 Unresolved Critical Questions: 0 | TBDs: 0
 
 Current implementation note: this PRD remains the approved design baseline.
 Theme F transport is now implemented in the runtime stack: Gazebo uses `gzweb`
 through `/gzweb/` and `/gzweb/ws/`, while Turtlesim uses noVNC through
-`/sim/turtlesim/novnc/`. Simulator launch and stop APIs in Theme B remain
-planned.
+`/sim/turtlesim/novnc/`. The Theme B simulator lifecycle is also implemented: the
+control plane exposes `GET /control/simulators` plus allowlisted
+`POST /control/simulators/{id}/launch` and `/stop`, and the SPA Simulators menu
+drives them with configurable per-simulator auto-start (default both on).
 
 Historical note: earlier staging described a Theme A branch state where
 Turtlesim was disabled and Gazebo used a legacy `simulator` + `vnc` path. That
@@ -40,7 +42,7 @@ UbeROS is a browser-based ROS 2 development environment: a Golden Layout v2 canv
 panels (Simulator, Terminal, Code Editor, ROS Status) served behind a single Nginx reverse proxy,
 launched with `docker compose up`. Gazebo is delivered through a headless `gz sim` plus `gzweb`
 scene-state stream, and Turtlesim is delivered through noVNC. Simulator launch and stop controls
-in the menu are still a planned Theme B capability. This PRD implements the
+are wired in the Simulators menu (Theme B). This PRD implements the
 [Simulation and Visualization BRD](../brds/uberos-simulation-visualization-brd.md).
 ### Core Opportunity
 Turn simulation from a single baked-in viewer into a **pluggable, build-configurable set of
@@ -71,8 +73,8 @@ teaching and quick tests.
 The runtime stack includes both default-enabled simulators (`gazebo` and `turtlesim`) in compose.
 Gazebo renders through `gzweb` (`/gzweb/`, `/gzweb/ws/`) and Turtlesim renders through noVNC
 (`/sim/turtlesim/novnc/`). The control plane already exposes simulator registry and state via
-`GET /control/simulators`. Launch and stop simulator APIs remain planned, so simulator lifecycle is
-currently tied to service runtime state rather than menu-triggered start and stop actions.
+`GET /control/simulators`, plus allowlisted `POST /control/simulators/{id}/launch` and `/stop`, so
+simulator lifecycle is driven by menu-triggered start and stop actions.
 ### Problem Statement
 Operators can run only one hard-wired simulator, cannot select/add/launch simulators, get Gazebo
 as a slow non-ROS pixel stream, and have no lightweight visualizer for teaching.
@@ -125,7 +127,7 @@ Terminal panel; reload the browser and both panels reconnect to the still-runnin
 * **Concurrency:** multiple simulators may run at once.
 * **Bridged topics:** only `/clock` (`rosgraph_msgs/Clock`) by default; per-world bridges added later.
 * **Bridge placement:** `ros_gz_bridge` runs co-located with `gz sim`; `gz sim` never joins DDS directly (only the bridge does).
-* **Lifecycle & auto-start:** simulators are compose services; both Gazebo and Turtlesim are default-enabled in the stack. Runtime start and stop through dedicated simulator endpoints remains planned.
+* **Lifecycle & auto-start:** simulators are compose services; both Gazebo and Turtlesim are default-enabled in the stack. Runtime start and stop run through dedicated control-plane simulator endpoints (`launch`/`stop`), with configurable per-simulator auto-start.
 * **`ros` image cleanup (planned):** drop the redundant `ros-gz` from the `ros` image so the bridge lives only in the Gazebo container.
 ### Constraints
 * Single reverse proxy; simulator ports never host-published.
@@ -219,8 +221,8 @@ surfaces in the menu by registration alone; launching either makes it ROS-visibl
 | FR ID | Requirement | Goals | Priority | Acceptance |
 |-------|-------------|-------|----------|-----------|
 | FR-B1 | A **Simulators** menu lists installed simulators with per-simulator state (available/starting/running/stopped/failed). | G-002 | Must | Menu shows both simulators and their state. |
-| FR-B2 | Launch action calls `POST /control/simulators/{id}/launch` (planned), which **starts** the simulator's container. | G-002 | Must | Launch starts the container and the panel shows the running sim. |
-| FR-B3 | Stop action calls `POST /control/simulators/{id}/stop` (planned), which **stops** the container. | G-002 | Must | Stop halts the sim; its ROS entities disappear. |
+| FR-B2 | Launch action calls `POST /control/simulators/{id}/launch`, which **starts** the simulator's container. | G-002 | Must | Launch starts the container and the panel shows the running sim. |
+| FR-B3 | Stop action calls `POST /control/simulators/{id}/stop`, which **stops** the container. | G-002 | Must | Stop halts the sim; its ROS entities disappear. |
 | FR-B4 | Launch opens/routes the correct panel per transport (`gzweb` panel for Gazebo, noVNC iframe for Turtlesim). | G-002,G-003,G-006 | Must | The right panel type opens for each simulator. |
 | FR-B5 | Multiple simulators may run **concurrently**; the menu tracks each independently. | G-007 | Must | Gazebo and Turtlesim run together; each is stoppable independently. |
 | FR-B6 | **Server-side lifecycle**: a launched simulator keeps running across a browser reload; reopening its panel reconnects to the running stream without restarting the sim. | G-007 | Must | After reload, both panels reconnect to still-running sims. |
@@ -234,8 +236,8 @@ reconnects both; disallowed names are rejected.
 > in compose; the control plane starts/stops them at runtime
 > (allowlisted). Whether a simulator **auto-starts** at `docker compose up` is
 > **configurable per simulator** (`autostart` in the registry / a
-> `UBEROS_SIMULATORS_AUTOSTART` list), and the default is planned to auto-start both Gazebo and
-> Turtlesim. The control plane will continue using only list/start/stop/restart Docker ops.
+> `UBEROS_SIMULATORS_AUTOSTART` list), and the default auto-starts both Gazebo and
+> Turtlesim. The control plane uses only list/start/stop/restart Docker ops.
 
 ### 7.3 Theme C — Turtlesim visualizer
 | FR ID | Requirement | Goals | Priority | Acceptance |
@@ -326,9 +328,9 @@ works from the browser, the Gazebo pipeline has no x11vnc/noVNC dependency, and 
 ### Control-plane API additions (behind `/control/`)
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/simulators` | Planned: list installed simulators and live state (extends the existing `/services` pattern). |
-| POST | `/simulators/{id}/launch` | Planned: start the simulator's container (allowlisted). |
-| POST | `/simulators/{id}/stop` | Planned: stop the simulator's container (allowlisted). |
+| GET | `/simulators` | List installed simulators and live state (extends the existing `/services` pattern). |
+| POST | `/simulators/{id}/launch` | Start the simulator's container (allowlisted). |
+| POST | `/simulators/{id}/stop` | Stop the simulator's container (allowlisted). |
 
 State values: `available` (installed, not running), `starting`, `running`, `stopped`, `failed`
 (derived from container State/Status as in `serviceStatus()`).

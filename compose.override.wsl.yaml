@@ -19,9 +19,9 @@
 #     inside the docker VM). Native-Linux and macOS hosts must NOT load this
 #     overlay — they have no /dev/dxg and should use the intel/nvidia overlay or
 #     the default software path.
-#   - The simulator image's Mesa must include the d3d12 Gallium driver
+#   - The gazebo image's Mesa must include the d3d12 Gallium driver
 #     (d3d12_dri.so, shipped with Mesa >= 22 / current Ubuntu libgl1-mesa-dri).
-#     If it is missing, rendering falls back to llvmpipe (software).
+#     If it is missing, server-side GL compute falls back to llvmpipe (software).
 #
 # ============================================================================
 # NOTE (Theme F, 2026-07-21): the old VNC pixel-scrape bottleneck is GONE. The
