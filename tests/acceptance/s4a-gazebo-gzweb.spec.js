@@ -13,6 +13,10 @@ import { test, expect } from '@playwright/test';
 
 test.describe('S4a - Gazebo via gzweb', () => {
   test('gzweb client connects to /gzweb/ws/ and renders a canvas', async ({ page }) => {
+    // Sequential waits below can stack to 15s + 30s + 45s + 45s on a healthy but
+    // slow host, which exceeds Playwright's 60s suite default. Set an explicit
+    // per-test timeout with headroom for the longest expected startup path.
+    test.setTimeout(180_000);
     const wsUrls = [];
     page.on('websocket', (ws) => wsUrls.push(ws.url()));
 

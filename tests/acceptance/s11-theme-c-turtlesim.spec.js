@@ -18,12 +18,11 @@ async function ensureTurtlesimRunning(request) {
 
   if (turtlesim.state !== 'running') {
     const launch = await request.post('/control/simulators/turtlesim/launch');
-    // 404 => the turtlesim container was never created (e.g. omitted from
-    // UBEROS_SIMULATORS for this build), so the readiness poll below could
-    // only time out; skip with a clear reason. Otherwise require the
-    // documented 200 so a real launch failure surfaces deterministically
-    // instead of as an opaque timeout.
-    test.skip(launch.status() === 404, 'turtlesim container not created (not in UBEROS_SIMULATORS)');
+    // The registry-missing case is already handled by the test.skip above, so
+    // reaching here means turtlesim IS installed. A 404 now means the registry
+    // advertises the simulator but its container was never created — a stack
+    // misconfiguration that must fail fast rather than hide behind a skip or
+    // an opaque readiness timeout. Require the documented 200.
     expect(launch.status()).toBe(200);
   }
 

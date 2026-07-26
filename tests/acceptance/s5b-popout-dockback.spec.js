@@ -7,8 +7,9 @@
 // event on the child's layout; the parent BrowserPopout re-docks the panel into
 // the MAIN canvas and — because settings.popInOnClose is false — closes the
 // popout window. This path uses GL's `popIn` event, NOT `beforeunload`, so it
-// works for ALL panels including the passive ones (Simulator, ROS Status) that
-// never receive a user gesture.
+// works for ALL panels including passive ones (like ROS Status) that never
+// receive a user gesture. NOTE: the Simulator panel is no longer a built-in
+// panel and is not exercised here (see PANELS below).
 //
 // This supersedes the OLD auto-dock-back-ON-CLOSE model: closing the popout via
 // the OS "X" (or window.close()) NO LONGER docks the panel back — it just leaves

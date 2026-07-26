@@ -19,7 +19,12 @@ test.describe('S4b - Turtlesim via noVNC', () => {
   });
 
   test('noVNC renders a non-blank Turtlesim frame within 30s', async ({ page }) => {
-    test.setTimeout(180_000);
+    // ensureSimulatorNoVncReady() alone can consume its full 210s readiness
+    // window on slow hosts; the subsequent canvas wait (30s) and non-black
+    // poll (30s) stack on top. Give the test more than the helper maximum plus
+    // those follow-on waits so it never times out while the helper is still
+    // legitimately polling.
+    test.setTimeout(300_000);
     await ensureSimulatorNoVncReady(page.request, 'turtlesim', '/sim/turtlesim/novnc/');
 
     // noVNC defaults its WebSocket to ws://host/websockify at the origin root,

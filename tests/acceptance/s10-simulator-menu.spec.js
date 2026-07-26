@@ -72,9 +72,15 @@ test.describe('S10 - simulator menu and lifecycle', () => {
   });
 
   test('stop lifecycle mapping settles to stopped for turtlesim stop flow', async ({ request }) => {
-    test.setTimeout(120_000);
+    // This test chains three sequential waits: the initial running-poll
+    // (pollSimulatorState defaults to 90s), the stop-settle poll (60s), and the
+    // finally-block relaunch poll (another 90s). The prior test relaunches
+    // turtlesim immediately before this one, so it often starts in `starting`
+    // and the initial poll consumes real time. Budget the full worst-case chain
+    // plus headroom so the finally block never runs against a disposed context.
+    test.setTimeout(300_000);
     ensureSimulatorRunning('turtlesim');
-    await pollSimulatorState(request, 'turtlesim', ['running']);
+    await pollSimulatorState(request, 'turtlesim', ['running', 'starting']);
 
     try {
       const stop = await request.post('/control/simulators/turtlesim/stop');
