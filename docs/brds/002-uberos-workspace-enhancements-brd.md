@@ -8,7 +8,7 @@ ms.topic: concept
 
 # UbeROS Workspace Enhancements BRD
 
-Version 0.3.0 | Status Approved | Owner jmservera | Related [Workspace Management BRD](./001-uberos-workspace-management-brd.md) · [uberos-init PRD](../prds/uberos-init.md) · [Workspace Enhancements PRD](../prds/uberos-workspace-enhancements.md)
+Version 0.3.0 | Status Approved | Owner jmservera | Related [Workspace Management BRD](./001-uberos-workspace-management-brd.md) · [uberos-init PRD](../prds/001-uberos-init.md) · [Workspace Enhancements PRD](../prds/002-uberos-workspace-enhancements.md)
 
 ## Progress Tracker
 
@@ -349,7 +349,7 @@ Acceptance criteria:
 
 ## 9. Open Questions
 
-All resolved 2026-07-19 (see the [Workspace Enhancements PRD](../prds/uberos-workspace-enhancements.md)).
+All resolved 2026-07-19 (see the [Workspace Enhancements PRD](../prds/002-uberos-workspace-enhancements.md)).
 
 1. Multi-user timing — Resolved: single-user now; the persistence schema reserves a user key so
    per-user isolation can be added later without redesign.

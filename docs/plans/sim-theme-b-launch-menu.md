@@ -1,6 +1,6 @@
 # Theme B — Launch menu & simulator lifecycle
 
-> Plan stub. Source of truth: [Simulation & Visualization PRD](../prds/uberos-simulation-visualization.md) §7.2.
+> Plan stub. Source of truth: [Simulation & Visualization PRD](../prds/003-uberos-simulation-visualization.md) §7.2.
 
 ## Scope — FR-B1 … FR-B8
 - FR-B1 — Simulators menu lists installed simulators with per-sim state (available/starting/running/stopped/failed).

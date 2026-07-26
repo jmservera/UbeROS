@@ -8,7 +8,7 @@ ms.topic: concept
 
 # UbeROS Workspace Management and Controls BRD
 
-Version 0.1.0 | Status Approved | Owner jmservera | Related PRD [uberos-init](../prds/uberos-init.md)
+Version 0.1.0 | Status Approved | Owner jmservera | Related PRD [uberos-init](../prds/001-uberos-init.md)
 ## Progress Tracker
 
 | Phase | Done | Gaps | Updated |

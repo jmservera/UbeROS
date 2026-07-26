@@ -1,6 +1,6 @@
 # Theme E — ROS 2 integration for Gazebo (ros_gz)
 
-> Plan stub. Source of truth: [Simulation & Visualization PRD](../prds/uberos-simulation-visualization.md) §7.5.
+> Plan stub. Source of truth: [Simulation & Visualization PRD](../prds/003-uberos-simulation-visualization.md) §7.5.
 
 ## Scope — FR-E1 … FR-E6
 - FR-E1 — `ros_gz_bridge` runs co-located with `gz sim` in the Gazebo container.

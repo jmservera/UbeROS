@@ -295,7 +295,7 @@ README + BRD/PRD updates; note behavior changes to pop-out.
 |--------|------|--------|---------|--------------------|
 | REF-1 | BRD | docs/brds/002-uberos-workspace-enhancements-brd.md | Business requirements for the 5 themes | Authoritative for business intent |
 | REF-2 | BRD | docs/brds/001-uberos-workspace-management-brd.md | Prior milestone requirements | Prior context |
-| REF-3 | PRD | docs/prds/uberos-init.md | Init constraints (single proxy, ports internal) | Constraint source |
+| REF-3 | PRD | docs/prds/001-uberos-init.md | Init constraints (single proxy, ports internal) | Constraint source |
 | REF-4 | Library | https://github.com/golden-layout/golden-layout | Native pop-out/pop-in (`browser-popout.ts`), sub-window via `?gl-window=` | Reuse decision basis |
 | REF-5 | Spec | docs/specs/03-intel-openvino-research.md | WSL2 `/dev/dxg` GPU passthrough context | GPU spike basis |
 ### Citation Usage

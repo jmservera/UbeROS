@@ -8,7 +8,7 @@ ms.topic: concept
 
 ## UbeROS Simulation and Visualization BRD
 
-Version 0.2.0 | Status Approved | Owner jmservera | Related [Workspace Enhancements BRD](./002-uberos-workspace-enhancements-brd.md) · [Workspace Management BRD](./001-uberos-workspace-management-brd.md) · [uberos-init PRD](../prds/uberos-init.md)
+Version 0.2.0 | Status Approved | Owner jmservera | Related [Workspace Enhancements BRD](./002-uberos-workspace-enhancements-brd.md) · [Workspace Management BRD](./001-uberos-workspace-management-brd.md) · [uberos-init PRD](../prds/001-uberos-init.md)
 
 ## Progress Tracker
 

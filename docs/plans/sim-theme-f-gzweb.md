@@ -10,7 +10,7 @@ ms.topic: reference
 
 Implementation-synchronized status record.
 
-Source of truth: [Simulation and Visualization PRD](../prds/uberos-simulation-visualization.md) section 7.6.
+Source of truth: [Simulation and Visualization PRD](../prds/003-uberos-simulation-visualization.md) section 7.6.
 
 ## Scope (FR-F1 to FR-F5)
 
