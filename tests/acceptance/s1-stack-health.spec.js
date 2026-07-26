@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
 import { SERVICES, healthSnapshot } from '../helpers/stack.js';
 
 test.describe('S1 - stack starts without error', () => {
-  test('all seven services report healthy', async ({ request }) => {
+  test('all nine services report healthy', async ({ request }) => {
     test.setTimeout(120_000);
     // Prior tests can intentionally stop simulators; reconcile to running so
     // this stack-health assertion remains independent and deterministic. Assert

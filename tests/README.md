@@ -19,8 +19,9 @@ against a **running** stack.
 
 ## Prerequisites
 
-- The full stack is up and healthy, including the on-demand simulators: from the
-  repo root run `docker compose --profile simulators up -d`. All nine services
+- The full stack is up and healthy. Simulators are always-on when the
+  environment is configured via `UBEROS_SIMULATORS`; from the repo root run
+  `docker compose up -d` to start all services. All nine services
   (`discovery-server, ros, gazebo, gzweb-client, turtlesim, editor, frontend,
   control, proxy`) must report `healthy`.
 - Node.js 18+ (uses the built-in `fetch`).

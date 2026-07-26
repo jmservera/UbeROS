@@ -43,15 +43,15 @@ export function execInService(service, shellCommand) {
   );
 }
 
-// Ensure an on-demand simulator's compose service is running before a test that
-// streams it. Simulators live behind the `simulators` compose profile and may
-// be created-but-stopped (autostart off) or not yet up; this brings the named
-// service up idempotently so the noVNC/gzweb stream has a live backend. Returns
-// the service health once `docker compose up` settles.
+// Ensure a simulator's compose service is running before a test that streams
+// it. Simulators are now treated as always-on via the UBEROS_SIMULATORS
+// environment variable; this brings the named service up idempotently so the
+// noVNC/gzweb stream has a live backend. Returns the service health once
+// `docker compose up` settles.
 export function ensureSimulatorRunning(service) {
   execFileSync(
     'docker',
-    ['compose', '--profile', 'simulators', 'up', '-d', service],
+    ['compose', 'up', '-d', service],
     { cwd: REPO_ROOT, encoding: 'utf8' }
   );
   return healthSnapshot()[service];
@@ -120,10 +120,13 @@ export async function ensureSimulatorNoVncReady(
 
   // Ask the control plane to launch the simulator in case it was intentionally
   // stopped by prior lifecycle tests in the same full-suite run.
+  // NOTE: this helper requires a successful (200) launch response. Older
+  // tests that exercised a retired/removed launch route used to tolerate
+  // 404 here; that behaviour is now explicit in those specs (e.g. S13).
   const launch = await request.post(`/control/simulators/${id}/launch`);
-  if (![200, 404].includes(launch.status())) {
+  if (launch.status() !== 200) {
     throw new Error(
-      `POST /control/simulators/${id}/launch failed with status ${launch.status()}`
+      `POST /control/simulators/${id}/launch failed with status ${launch.status()} (expected 200)`
     );
   }
 

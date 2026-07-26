@@ -5,24 +5,7 @@
 // its state and a Launch/Stop action (FR-A2/A3, FR-B1..B6). This spec verifies
 // the API contract, the menu rendering, and a real stop→launch state cycle.
 import { test, expect } from '@playwright/test';
-import { ensureSimulatorRunning } from '../helpers/stack.js';
-
-// Poll the control plane until the named simulator reaches one of `states`.
-async function pollSimulatorState(request, id, states, timeoutMs = 90_000) {
-  const deadline = Date.now() + timeoutMs;
-  let last = 'unknown';
-  while (Date.now() < deadline) {
-    const res = await request.get('/control/simulators');
-    if (res.ok()) {
-      const { simulators } = await res.json();
-      const sim = simulators.find((s) => s.id === id);
-      last = sim?.state ?? 'missing';
-      if (states.includes(last)) return last;
-    }
-    await new Promise((r) => setTimeout(r, 2000));
-  }
-  return last;
-}
+import { ensureSimulatorRunning, pollSimulatorState, getSimulators } from '../helpers/stack.js';
 
 async function getSimulatorState(request, id) {
   const res = await request.get('/control/simulators');
