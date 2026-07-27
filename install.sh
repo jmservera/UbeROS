@@ -23,6 +23,11 @@ ROOT_DIR="${SCRIPT_DIR}"
 ENV_TEMPLATE="${ROOT_DIR}/.env.template"
 ENV_FILE="${ROOT_DIR}/.env"
 
+# Paths to helper scripts (Phase 3 additions)
+WIZARD_SCRIPT="${ROOT_DIR}/scripts/installer-wizard.sh"
+PROVISION_SCRIPT="${ROOT_DIR}/scripts/provision-workspace.sh"
+COMPOSE_GEN_SCRIPT="${ROOT_DIR}/scripts/compose-release-gen.sh"
+
 # Default ROS workspace location (FR-F1, BR-009). Deliberately outside the
 # source checkout so colcon build/install/log output never dirties the repo. An
 # exported UBEROS_WORKSPACE wins; otherwise fall back to $HOME. Without a usable
@@ -95,6 +100,18 @@ ensure_env() {
   log "Generated .env from .env.template (workspace: ${DEFAULT_WORKSPACE})."
 }
 
+# Run the guided wizard when interactive and when asked
+run_wizard_if_needed() {
+  if [ -x "${WIZARD_SCRIPT}" ]; then
+    # If a user explicitly set NON_INTERACTIVE, skip the wizard
+    if [ -t 0 ] && [ -z "${NON_INTERACTIVE:-}" ]; then
+      sh "${WIZARD_SCRIPT}"
+    else
+      log "Skipping wizard (non-interactive mode or missing TTY)"
+    fi
+  fi
+}
+
 # Read a key from .env, ignoring comments and returning the first match.
 env_value() {
   grep -E "^$1=" "${ENV_FILE}" 2>/dev/null | head -n1 | cut -d= -f2-
@@ -119,8 +136,14 @@ ensure_workspace() {
 
 install_local() {
   [ -f "${ROOT_DIR}/compose.yaml" ] || die "local mode requires compose.yaml at ${ROOT_DIR}"
+  run_wizard_if_needed
   ensure_env
-  ensure_workspace
+  # Ensure workspace src exists; use provisioning helper if present
+  if [ -x "${PROVISION_SCRIPT}" ]; then
+    sh "${PROVISION_SCRIPT}" ensure
+  else
+    ensure_workspace
+  fi
   log "Building UbeROS images from source..."
   ( cd "${ROOT_DIR}" && compose build )
   log "Starting the UbeROS stack..."
