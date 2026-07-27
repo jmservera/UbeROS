@@ -250,6 +250,10 @@ services:
       UBEROS_SERVICES: ${UBEROS_SERVICES:-ros,gazebo,turtlesim,editor,frontend}
       # Surfaced to the SPA so it knows whether to show Logout (BR-008).
       UBEROS_AUTH: ${UBEROS_AUTH:-off}
+      # Running UbeROS version surfaced by /control/version and the frontend
+      # About dialog (Theme G, FR-G1/FR-G2). Defaults to `dev`; the release
+      # pipeline overrides it at build/deploy time.
+      UBEROS_VERSION: ${UBEROS_VERSION:-dev}
       # Path to the persisted system settings store (Theme C, FR-C2). Lives on
       # the control-data named volume so settings survive container restarts.
       UBEROS_CONFIG_FILE: /data/config.json
