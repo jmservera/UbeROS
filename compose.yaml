@@ -60,7 +60,7 @@ services:
       ROS_DISCOVERY_SERVER: discovery-server:11811
       FASTDDS_DEFAULT_PROFILES_FILE: /etc/ros/dds_discovery.xml
     volumes:
-      - ./workspace/src:/ros_ws/src
+      - ${UBEROS_WORKSPACE:-./workspace}/src:/ros_ws/src
       - ros-workspace:/ros_ws
       - ros-home:/root/.ros
     networks:
@@ -181,7 +181,7 @@ services:
     # Token-at-rest encryption is REQUIRED before any multi-user or untrusted
     # network exposure — never commit tokens to the repo.
     volumes:
-      - ./workspace/src:/ros_ws/src
+      - ${UBEROS_WORKSPACE:-./workspace}/src:/ros_ws/src
       - editor-data:/home/coder/.local/share/code-server
       - editor-config:/home/coder/.config/code-server
     networks:
