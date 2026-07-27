@@ -36,6 +36,7 @@ const DOCKER_API = process.env.DOCKER_API_VERSION || 'v1.43';
 const PROJECT = process.env.UBEROS_PROJECT || 'uberos';
 const PORT = Number(process.env.CONTROL_PORT || 9000);
 const AUTH = (process.env.UBEROS_AUTH || 'off').toLowerCase();
+const VERSION = process.env.UBEROS_VERSION || 'dev';
 const STACK_INSTANCE = process.env.UBEROS_STACK_INSTANCE || '';
 const AUTOSTART_STAMP_FILE = process.env.UBEROS_AUTOSTART_STAMP_FILE || '/data/autostart.reconciled';
 
@@ -436,6 +437,13 @@ const server = http.createServer(async (req, res) => {
         auth: AUTH === 'off' || AUTH === 'none' || AUTH === '' ? 'off' : AUTH,
         services: ALLOWED_SERVICES,
       });
+    }
+
+    // Running UbeROS version surfaced by the frontend About dialog (FR-G2). The
+    // value comes from UBEROS_VERSION (defaults to `dev`); the release pipeline
+    // overrides it at build/deploy time.
+    if (req.method === 'GET' && path === '/version') {
+      return sendJson(res, 200, { version: VERSION });
     }
 
     if (req.method === 'GET' && path === '/services') {
