@@ -16,6 +16,13 @@ FROM ros:${ROS_DISTRO}-ros-base
 ARG ROS_DISTRO
 ENV ROS_DISTRO=${ROS_DISTRO}
 
+# OCI provenance labels. UBEROS_VERSION defaults to `dev` for local builds and
+# is overridden at release time (FR-A5). See docs/VERSIONING.md.
+ARG UBEROS_VERSION=dev
+LABEL org.opencontainers.image.version="${UBEROS_VERSION}" \
+      org.opencontainers.image.title="uberos-turtlesim" \
+      org.opencontainers.image.source="https://github.com/jmservera/UbeROS"
+
 # turtlesim + the VNC toolchain (Xvfb framebuffer, openbox window manager,
 # x11vnc export, novnc/websockify browser bridge). x11-utils provides xdpyinfo
 # for the framebuffer readiness probe; curl is used by the container health check.

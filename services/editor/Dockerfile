@@ -3,6 +3,13 @@
 # edits are immediately visible to the ROS build toolchain (F-15, S6). See WP-7.
 FROM codercom/code-server:4.129.0
 
+# OCI provenance labels. UBEROS_VERSION defaults to `dev` for local builds and
+# is overridden at release time (FR-A5). See docs/VERSIONING.md.
+ARG UBEROS_VERSION=dev
+LABEL org.opencontainers.image.version="${UBEROS_VERSION}" \
+      org.opencontainers.image.title="uberos-editor" \
+      org.opencontainers.image.source="https://github.com/jmservera/UbeROS"
+
 USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
