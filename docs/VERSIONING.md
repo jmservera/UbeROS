@@ -20,8 +20,8 @@ MAJOR.MINOR.PATCH[-prerelease][+build]
 ```
 
 * `MAJOR`, `MINOR`, and `PATCH` are non-negative integers with no leading zeros.
-* `-prerelease` is an optional dot-separated series of alphanumeric identifiers
-  (for example `-beta`, `-beta.2`, `-rc.1`). It marks the version as unstable
+* `-prerelease` is an optional dot-separated series of identifiers containing ASCII
+  alphanumerics and `-` (for example `-beta`, `-beta.2`, `-rc.1`). It marks the version as unstable
   and takes lower precedence than the corresponding final release.
 * `+build` is optional build metadata (for example `+20260726` or
   `+sha.a1b2c3d`). Build metadata is ignored when determining precedence.
