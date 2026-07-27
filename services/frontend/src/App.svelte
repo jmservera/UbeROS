@@ -753,7 +753,7 @@
 <div class="uberos-shell">
   {#if !isSubWindow}
   <header class="uberos-titlebar">
-    <span class="brand">UbeROS</span>
+    <span class="brand">Übe<span class="brand-ros">ROS</span></span>
     <span class="tagline">ROS in your browser</span>
 
     <nav class="uberos-menubar" aria-label="Workspace menu">
@@ -969,6 +969,10 @@
     font-weight: 700;
     color: var(--uberos-accent);
     letter-spacing: 0.03em;
+  }
+
+  .brand-ros {
+    color: #ffffff;
   }
 
   .tagline {

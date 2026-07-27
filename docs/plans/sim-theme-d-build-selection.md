@@ -1,6 +1,6 @@
 # Theme D — Runtime simulator selection
 
-> Plan stub. Source of truth: [Simulation & Visualization PRD](../prds/uberos-simulation-visualization.md) §7.4.
+> Plan stub. Source of truth: [Simulation & Visualization PRD](../prds/003-uberos-simulation-visualization.md) §7.4.
 
 ## Scope — FR-D1 … FR-D4
 - FR-D1 — `UBEROS_SIMULATORS` (control-plane registry) selects which simulators are installed and shown in the launch menu for a deployment. There are no compose profiles: the simulator services are always-on, and selection is runtime registry/menu gating.

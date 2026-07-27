@@ -12,9 +12,9 @@ ms.topic: how-to
 Machine-verification of the six Initial Success Criteria (S1–S6) from
 [`docs/specs/01-Init.md`](../docs/specs/01-Init.md), the workspace-management
 criteria (S7–S9) from
-[`docs/brds/uberos-workspace-management-brd.md`](../docs/brds/uberos-workspace-management-brd.md),
+[`docs/brds/001-uberos-workspace-management-brd.md`](../docs/brds/001-uberos-workspace-management-brd.md),
 and the simulation-visualization criteria (S10) from
-[`docs/prds/uberos-simulation-visualization.md`](../docs/prds/uberos-simulation-visualization.md)
+[`docs/prds/003-uberos-simulation-visualization.md`](../docs/prds/003-uberos-simulation-visualization.md)
 against a **running** stack.
 
 ## Prerequisites
