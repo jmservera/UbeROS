@@ -13,7 +13,7 @@
     LAYOUT_PRESETS,
     LAYOUTS,
   } from './lib/panels.js';
-  import { getConfig, getServices, getSimulators, restartService, launchSimulator, stopSimulator, getSettings, saveSettings } from './lib/control.js';
+  import { getConfig, getServices, getSimulators, restartService, launchSimulator, stopSimulator, getSettings, saveSettings, getVersion } from './lib/control.js';
 
   const LAYOUT_KEY = 'uberos.layout.v1';
   const LAYOUT_KEYS = Object.keys(LAYOUTS);
@@ -76,6 +76,13 @@
   let draft = { ...SETTINGS_DEFAULTS }; // editable copy while dialog is open
   let settingsUser = 'default'; // reserved key for future per-user scoping (FR-C4)
   let configError = '';
+
+  // --- Help ▸ About dialog (Theme G, FR-G3) ------------------------------
+  // Surfaces the running UbeROS version from the control plane's /version
+  // endpoint (UBEROS_VERSION, defaults to `dev`) so operators can confirm which
+  // release they are running.
+  let showAbout = false; // dialog visibility (FR-G3)
+  let version = 'dev'; // running version fetched from GET /control/version
 
   const factories = {
     terminal: buildTerminalPanel,
@@ -371,6 +378,18 @@
 
   function closeConfig() {
     showConfig = false;
+  }
+
+  // Open the About dialog and refresh the version from the control plane so the
+  // displayed value always reflects the running deployment (FR-G3).
+  function openAbout() {
+    showAbout = true;
+    closeMenu();
+    getVersion().then((v) => { version = v; });
+  }
+
+  function closeAbout() {
+    showAbout = false;
   }
 
   // Validate the draft before saving (FR-C3). Server-side validation is the
@@ -703,6 +722,9 @@
       authEnabled = cfg.auth && cfg.auth !== 'off' && cfg.auth !== 'none';
     });
 
+    // Prime the About dialog's version so it is correct on first open (FR-G3).
+    getVersion().then((v) => { version = v; });
+
     // Load persisted system settings and apply their effects (Theme C).
     // Apply even in pop-out sub-windows so the theme stays consistent.
     loadSettings();
@@ -878,6 +900,13 @@
         on:click|stopPropagation={openConfig}
       >Configuration</button>
 
+      <!-- About: show the running UbeROS version (Theme G, FR-G3). -->
+      <button
+        class="menu-button"
+        class:open={showAbout}
+        on:click|stopPropagation={openAbout}
+      >About</button>
+
       <span class="menu-spacer"></span>
       {#if statusMsg}<span class="menu-status" role="status">{statusMsg}</span>{/if}
       {#if authEnabled}
@@ -947,7 +976,32 @@
       </div>
     </div>
   {/if}
+
+  <!-- About dialog (Theme G, FR-G3): shows the running UbeROS version. -->
+  {#if showAbout}
+    <div class="uberos-modal-backdrop" role="presentation" on:click|self={closeAbout}>
+      <div class="uberos-modal about-modal" role="dialog" aria-modal="true" aria-label="About UbeROS">
+        <header class="modal-head">
+          <h2>About UbeROS</h2>
+          <button class="modal-close" aria-label="Close" on:click={closeAbout}>✕</button>
+        </header>
+        <div class="modal-body">
+          <p class="about-brand">Übe<span class="brand-ros">ROS</span></p>
+          <p class="about-tagline">ROS in your browser</p>
+          <div class="cfg-row">
+            <span class="cfg-label">Version</span>
+            <span class="cfg-readonly" data-testid="about-version">{version}</span>
+          </div>
+        </div>
+        <footer class="modal-foot">
+          <span class="foot-spacer"></span>
+          <button class="btn-save" type="button" on:click={closeAbout}>Close</button>
+        </footer>
+      </div>
+    </div>
+  {/if}
 </div>
+
 
 <style>
   .uberos-shell {

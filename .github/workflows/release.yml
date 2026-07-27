@@ -1,0 +1,89 @@
+name: Release — Build & Push Images
+# UbeROS release pipeline (Theme B, FR-B1/FR-B2/FR-B3). On a `v*` version tag,
+# build every service image for linux/amd64 and push it to GitHub Container
+# Registry (ghcr.io) tagged with the release version. Pre-release tags (a `-`
+# in the version, e.g. v0.4.0-beta) additionally publish a moving `:beta` tag so
+# testers can track the latest pre-release. The version flows into each image as
+# the UBEROS_VERSION build-arg, which stamps the OCI version label (FR-A5, PR-3)
+# and the control /version endpoint default.
+#
+# Bundle assembly, checksums, release notes, and the GitHub Release itself land
+# in a later pipeline stage (PR-12); this stage only publishes images.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ghcr.io/jmservera/uberos
+
+jobs:
+  publish-images:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: ros
+            context: ./services/ros
+          - service: gazebo
+            context: ./services/gazebo
+          - service: turtlesim
+            context: ./services/turtlesim
+          - service: editor
+            context: ./services/editor
+          - service: frontend
+            context: ./services/frontend
+          - service: gzweb-client
+            context: ./services/gazebo/client
+          - service: control
+            context: ./services/control
+          - service: proxy
+            context: ./services/proxy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive version and image tags
+        id: meta
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          image="${IMAGE_NAMESPACE}/${{ matrix.service }}"
+          tags="${image}:${version}"
+          # A hyphen marks a semver pre-release (e.g. 0.4.0-beta); publish the
+          # moving :beta tag alongside the pinned version (docs/VERSIONING.md).
+          case "${version}" in
+            *-*) tags="${tags},${image}:beta" ;;
+          esac
+          {
+            echo "version=${version}"
+            echo "tags=${tags}"
+          } >> "${GITHUB_OUTPUT}"
+          echo "Publishing ${{ matrix.service }} as: ${tags}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            UBEROS_VERSION=${{ steps.meta.outputs.version }}
+            NPM_REGISTRY=https://registry.npmjs.org/

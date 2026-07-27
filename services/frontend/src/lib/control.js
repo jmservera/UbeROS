@@ -25,6 +25,18 @@ export async function getConfig() {
   }
 }
 
+// Running UbeROS version for the Help ▸ About dialog (Theme G, FR-G3). The value
+// comes from the control plane's /version endpoint (UBEROS_VERSION, defaults to
+// `dev`). Falls back to `dev` if the control plane is unreachable.
+export async function getVersion() {
+  try {
+    const { version } = await json('/version');
+    return version ?? 'dev';
+  } catch {
+    return 'dev';
+  }
+}
+
 // Current per-service container health for the Services menu.
 export async function getServices() {
   try {
