@@ -60,7 +60,7 @@ services:
       ROS_DISCOVERY_SERVER: discovery-server:11811
       FASTDDS_DEFAULT_PROFILES_FILE: /etc/ros/dds_discovery.xml
     volumes:
-      - ./workspace/src:/ros_ws/src
+      - ${UBEROS_WORKSPACE:-./workspace}/src:/ros_ws/src
       - ros-workspace:/ros_ws
       - ros-home:/root/.ros
     networks:
@@ -181,7 +181,7 @@ services:
     # Token-at-rest encryption is REQUIRED before any multi-user or untrusted
     # network exposure — never commit tokens to the repo.
     volumes:
-      - ./workspace/src:/ros_ws/src
+      - ${UBEROS_WORKSPACE:-./workspace}/src:/ros_ws/src
       - editor-data:/home/coder/.local/share/code-server
       - editor-config:/home/coder/.config/code-server
     networks:
@@ -250,6 +250,10 @@ services:
       UBEROS_SERVICES: ${UBEROS_SERVICES:-ros,gazebo,turtlesim,editor,frontend}
       # Surfaced to the SPA so it knows whether to show Logout (BR-008).
       UBEROS_AUTH: ${UBEROS_AUTH:-off}
+      # Running UbeROS version surfaced by /control/version and the frontend
+      # About dialog (Theme G, FR-G1/FR-G2). Defaults to `dev`; the release
+      # pipeline overrides it at build/deploy time.
+      UBEROS_VERSION: ${UBEROS_VERSION:-dev}
       # Path to the persisted system settings store (Theme C, FR-C2). Lives on
       # the control-data named volume so settings survive container restarts.
       UBEROS_CONFIG_FILE: /data/config.json
