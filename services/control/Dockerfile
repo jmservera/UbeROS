@@ -4,6 +4,13 @@
 # using only the Node standard library.
 FROM node:20-alpine
 
+# OCI provenance labels. UBEROS_VERSION defaults to `dev` for local builds and
+# is overridden at release time (FR-A5). See docs/VERSIONING.md.
+ARG UBEROS_VERSION=dev
+LABEL org.opencontainers.image.version="${UBEROS_VERSION}" \
+      org.opencontainers.image.title="uberos-control" \
+      org.opencontainers.image.source="https://github.com/jmservera/UbeROS"
+
 WORKDIR /app
 COPY package.json ./
 COPY server.js simulators.js ./

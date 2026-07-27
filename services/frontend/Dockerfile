@@ -16,6 +16,13 @@ RUN npm run build
 
 # --- serve stage ---
 FROM nginx:1.27-alpine
+# OCI provenance labels on the shipped runtime image. UBEROS_VERSION defaults to
+# `dev` for local builds and is overridden at release time (FR-A5). See
+# docs/VERSIONING.md.
+ARG UBEROS_VERSION=dev
+LABEL org.opencontainers.image.version="${UBEROS_VERSION}" \
+      org.opencontainers.image.title="uberos-frontend" \
+      org.opencontainers.image.source="https://github.com/jmservera/UbeROS"
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 3000
