@@ -59,7 +59,7 @@ USER coder
 # start a fresh container, to pick up the baked set.)
 RUN code-server \
         --install-extension Ranch-Hand-Robotics.rde-ros-2@1.0.9 \
-        --install-extension ms-python.python \
+        --install-extension ms-python.python@2026.4.0 \
         --install-extension llvm-vs-code-extensions.vscode-clangd@0.6.0 \
         --install-extension redhat.vscode-yaml@1.24.2026063009 \
         --install-extension ms-vscode.cmake-tools@1.23.52
