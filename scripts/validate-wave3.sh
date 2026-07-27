@@ -116,6 +116,16 @@ HOME="${HOME}" sh "${INSTALL}" -y --no-migrate --dry-run >/dev/null || fail "def
 grep -q '^UBEROS_PORT=8080$' "${INSTALL_ROOT}/.env" || fail "default port not applied"
 pass "defaults produce a complete setup"
 
+printf '\n== re-run preserves hand-edited .env values ==\n'
+sh "${INSTALL}" -y --port 7000 --workspace "${SANDBOX}/keep" --no-migrate --dry-run >/dev/null \
+  || fail "install with explicit port"
+HOME="${SANDBOX}/home" sh "${INSTALL}" -y --no-migrate --dry-run >/dev/null || fail "re-run"
+grep -q '^UBEROS_PORT=7000$' "${INSTALL_ROOT}/.env" \
+  || fail "re-run reset the configured port back to the default"
+grep -q "^UBEROS_WORKSPACE=${SANDBOX}/keep$" "${INSTALL_ROOT}/.env" \
+  || fail "re-run reset the configured workspace back to the default"
+pass "re-running the installer keeps the existing port and workspace"
+
 printf '\n== unset HOME fails with guidance (FR-E4) ==\n'
 rm -f "${INSTALL_ROOT}/.env"
 expect_failure 'workspace path is empty' env -u HOME sh "${INSTALL}" -y --dry-run

@@ -147,6 +147,14 @@ confirm() {
   esac
 }
 
+# Read a key from .env. `head -n1` keeps the result single-valued even if a
+# hand-edited file ends up with duplicate keys, so callers never get a
+# multi-line value that breaks path handling.
+env_value() {
+  [ -f "${ENV_FILE}" ] || return 0
+  grep -E "^$1=" "${ENV_FILE}" 2>/dev/null | head -n1 | cut -d= -f2-
+}
+
 # Set a key in .env, replacing the first occurrence or appending when absent.
 # Uses awk rather than sed so values containing `|`, `&`, or `/` (all legal in
 # paths and URLs) cannot corrupt the substitution.
@@ -261,8 +269,13 @@ load_config() {
 # --non-interactive was not requested; otherwise defaults and CLI/config values
 # are used as-is. Values already fixed on the command line are never re-asked.
 run_wizard() {
-  _default_ws="${OPT_WORKSPACE:-${HOME:+${HOME}/uberos-workspace}}"
-  _default_port="${OPT_PORT:-${DEFAULT_PORT}}"
+  # Values already in .env win over the built-in defaults so re-running the
+  # installer never silently resets a port or workspace the user changed by
+  # hand. Explicit CLI/config answers still take precedence over both.
+  _default_ws="${OPT_WORKSPACE:-$(env_value UBEROS_WORKSPACE)}"
+  [ -n "${_default_ws}" ] || _default_ws="${HOME:+${HOME}/uberos-workspace}"
+  _default_port="${OPT_PORT:-$(env_value UBEROS_PORT)}"
+  [ -n "${_default_port}" ] || _default_port="${DEFAULT_PORT}"
   _default_gpu="${OPT_GPU:-${DEFAULT_GPU}}"
 
   if can_prompt; then
@@ -360,14 +373,19 @@ migrate_legacy_workspace() {
     || die "migration copy failed; ${LEGACY_WORKSPACE}/src was left untouched"
 
   # Verify every source file landed in the target before declaring success.
-  _report="${ROOT_DIR}/.uberos-migrate-missing"
+  # The report lives in a temp file so a failed migration never leaves a stray
+  # artifact inside the checkout.
+  _report="$(mktemp "${TMPDIR:-/tmp}/uberos-migrate.XXXXXX")"
   ( cd "${LEGACY_WORKSPACE}/src" && find . -type f -print ) \
     | while IFS= read -r _rel; do
         [ -f "${_target}/${_rel}" ] || printf '%s\n' "${_rel}"
       done > "${_report}"
   if [ -s "${_report}" ]; then
     err "migration verification failed: $(wc -l < "${_report}" | tr -d ' ') file(s) missing in ${_target}"
-    die "see ${_report}; ${LEGACY_WORKSPACE}/src was left untouched"
+    err "missing files:"
+    sed 's/^/  /' "${_report}" >&2
+    rm -f "${_report}"
+    die "${LEGACY_WORKSPACE}/src was left untouched"
   fi
   rm -f "${_report}"
   log "Migration verified. The original is still at ${LEGACY_WORKSPACE}/src;"
