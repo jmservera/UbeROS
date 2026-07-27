@@ -60,13 +60,16 @@ EOF
 }
 
 # Detect whether this tree is a source checkout (build from source) or a
-# released bundle (pinned images). A bundle ships compose.release.yaml; a source
-# checkout ships the services/ build contexts.
+# released bundle (pinned images). A bundle ships compose.release.yaml and no
+# build contexts; a source checkout ships services/. The source checkout is
+# tested first because a developer may have generated compose.release.yaml
+# locally via scripts/gen-compose-release.sh, and that must not flip the tree
+# into release mode.
 detect_mode() {
-  if [ -f "${ROOT_DIR}/compose.release.yaml" ]; then
-    printf 'release'
-  elif [ -d "${ROOT_DIR}/services" ] && [ -f "${ROOT_DIR}/compose.yaml" ]; then
+  if [ -d "${ROOT_DIR}/services" ] && [ -f "${ROOT_DIR}/compose.yaml" ]; then
     printf 'local'
+  elif [ -f "${ROOT_DIR}/compose.release.yaml" ]; then
+    printf 'release'
   else
     printf 'unknown'
   fi
