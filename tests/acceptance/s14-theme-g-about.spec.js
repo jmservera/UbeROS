@@ -1,7 +1,7 @@
 // S14 - The Help ▸ About dialog surfaces the running UbeROS version (Theme G,
-// FR-G3). The menubar exposes an About entry; opening it shows a modal whose
-// version field reflects GET /control/version. Machine-testable: the control
-// endpoint returns a version and the About modal renders that same value.
+// FR-G1/FR-G2/FR-G3). The menubar exposes an About entry; opening it shows a
+// modal whose version field reflects GET /control/version. Machine-testable: the
+// control endpoint returns a version and the About modal renders that same value.
 import { test, expect } from '@playwright/test';
 
 test.describe('S14 - About dialog shows the version', () => {
@@ -11,7 +11,7 @@ test.describe('S14 - About dialog shows the version', () => {
     await expect(page.locator('.uberos-menubar')).toBeVisible({ timeout: 20_000 });
   });
 
-  test('control /version returns a version string (FR-G1/FR-G2)', async ({ request }) => {
+  test('control /version returns a version string (FR-G2)', async ({ request }) => {
     const res = await request.get('/control/version');
     expect(res.status()).toBe(200);
     const body = await res.json();

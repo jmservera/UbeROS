@@ -24,8 +24,11 @@ ENV_TEMPLATE="${ROOT_DIR}/.env.template"
 ENV_FILE="${ROOT_DIR}/.env"
 
 # Default ROS workspace location (FR-F1, BR-009). Deliberately outside the
-# source checkout so colcon build/install/log output never dirties the repo.
-DEFAULT_WORKSPACE="${HOME:-${ROOT_DIR}}/uberos-workspace"
+# source checkout so colcon build/install/log output never dirties the repo. An
+# exported UBEROS_WORKSPACE wins; otherwise fall back to $HOME. Without a usable
+# HOME there is no safe location to guess, so stay empty and let ensure_env()
+# fail with guidance rather than silently polluting the checkout.
+DEFAULT_WORKSPACE="${UBEROS_WORKSPACE:-${HOME:+${HOME}/uberos-workspace}}"
 
 MODE="" # empty => auto-detect
 
@@ -83,6 +86,7 @@ ensure_env() {
     return 0
   fi
   [ -f "${ENV_TEMPLATE}" ] || die "missing ${ENV_TEMPLATE}; cannot generate .env"
+  [ -n "${DEFAULT_WORKSPACE}" ] || die "cannot determine a workspace location (HOME is unset); set UBEROS_WORKSPACE to an absolute path outside this checkout and re-run"
   cp "${ENV_TEMPLATE}" "${ENV_FILE}"
   # The template ships UBEROS_WORKSPACE empty on purpose; resolve it to an
   # external directory so the source checkout stays clean (FR-F1, BR-009).
