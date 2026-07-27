@@ -24,6 +24,13 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG ROS_DISTRO
 ENV ROS_DISTRO=${ROS_DISTRO}
 
+# OCI provenance labels. UBEROS_VERSION defaults to `dev` for local builds and
+# is overridden at release time (FR-A5). See docs/VERSIONING.md.
+ARG UBEROS_VERSION=dev
+LABEL org.opencontainers.image.version="${UBEROS_VERSION}" \
+      org.opencontainers.image.title="uberos-gazebo" \
+      org.opencontainers.image.source="https://github.com/jmservera/UbeROS"
+
 # procps provides pgrep for the health check. The gz-launch websocket server
 # plugin is expected to be present in the `-full` image used by this service.
 RUN apt-get update \

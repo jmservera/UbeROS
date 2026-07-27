@@ -87,7 +87,7 @@ Rationale:
 
 ## References
 
-[^brd]: UbeROS Workspace Management BRD, requirement BR-011 (research-only Guacamole vs. noVNC comparison) and invariant I-12 (shared iframe origin): [`docs/brds/uberos-workspace-management-brd.md`](../brds/uberos-workspace-management-brd.md).
+[^brd]: UbeROS Workspace Management BRD, requirement BR-011 (research-only Guacamole vs. noVNC comparison) and invariant I-12 (shared iframe origin): [`docs/brds/001-uberos-workspace-management-brd.md`](../brds/001-uberos-workspace-management-brd.md).
 
 [^proxy-conf]: UbeROS reverse-proxy configuration, `location /novnc` WebSocket upgrade with `proxy_buffering off`, proxying to `simulator:6080`: [`services/proxy/nginx.conf`](../../services/proxy/nginx.conf).
 

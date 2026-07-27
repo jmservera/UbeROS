@@ -43,7 +43,7 @@ panels (Simulator, Terminal, Code Editor, ROS Status) served behind a single Ngi
 launched with `docker compose up`. Gazebo is delivered through a headless `gz sim` plus `gzweb`
 scene-state stream, and Turtlesim is delivered through noVNC. Simulator launch and stop controls
 are wired in the Simulators menu (Theme B). This PRD implements the
-[Simulation and Visualization BRD](../brds/uberos-simulation-visualization-brd.md).
+[Simulation and Visualization BRD](../brds/003-uberos-simulation-visualization-brd.md).
 ### Core Opportunity
 Turn simulation from a single baked-in viewer into a **pluggable, build-configurable set of
 simulators** that operators launch on demand from a menu, that run **concurrently**, that **survive
@@ -399,8 +399,8 @@ Recommendation: spike **R-1 (`gzweb` on the pinned Gazebo release)** before Phas
 ## 15. References & Provenance
 | Ref | Source | Use |
 |-----|--------|-----|
-| BRD | [Simulation and Visualization BRD](../brds/uberos-simulation-visualization-brd.md) | Requirements source |
-| Enhancements BRD | [Workspace Enhancements BRD](../brds/uberos-workspace-enhancements-brd.md) | Gazebo GPU/VNC lag spike (Theme E) |
+| BRD | [Simulation and Visualization BRD](../brds/003-uberos-simulation-visualization-brd.md) | Requirements source |
+| Enhancements BRD | [Workspace Enhancements BRD](../brds/002-uberos-workspace-enhancements-brd.md) | Gazebo GPU/VNC lag spike (Theme E) |
 | gzweb | https://github.com/gazebo-web/gzweb | Gazebo web client (`SceneManager`, Three.js) |
 | gzweb spike | [gzweb feasibility research](../../.copilot-tracking/research/2026-07-21/gzweb-web-visualization-feasibility-research.md) | Confirmed scene-state path, components, verdict |
 | gazebosim-app | https://github.com/gazebo-web/gazebosim-app | Reference web client (app.gazebosim.org) |

@@ -1,14 +1,16 @@
 ---
-title: UbeROS
+title: ÜbeROS
 description: Browser-accessible ROS development and simulation environment running on Docker Compose.
 author: UbeROS Team
 ms.date: 2026-07-23
 ms.topic: overview
 ---
 
-## UbeROS
+## ÜbeROS
 
 > A browser-accessible ROS development and simulation environment on Docker Compose.
+
+![ÜbeROS logo](docs/images/logo.png)
 
 UbeROS delivers a complete, containerized ROS 2 workspace, physics simulator,
 browser code editor, terminals, and a canvas window manager, reachable from a
@@ -172,12 +174,23 @@ docker compose up -d --build proxy control
 With auth enabled the workspace menu shows a **Logout** action that clears the
 stored credentials and forces re-authentication.
 
+## Platform support
+
+UbeROS currently targets **x86_64** hosts (Linux, Windows via WSL2, and Intel
+macOS), including the GPU overlays (`compose.override.{wsl,intel,gpu}.yaml`).
+
+**ARM and Apple-silicon (arm64) are not yet supported.** We plan to cover them in
+a later iteration and would welcome help: if you run on **Apple silicon** (M-series)
+or other arm64 hardware, please try the stack and report what builds, what fails,
+and any image/driver workarounds by opening an issue. Contributions and test
+reports for Apple-silicon support are especially appreciated.
+
 ## Documentation
 
 - Project brief: [docs/specs/01-Init.md](docs/specs/01-Init.md)
 - Research report: [docs/specs/01-Init-research.md](docs/specs/01-Init-research.md)
-- PRD (init): [docs/prds/uberos-init.md](docs/prds/uberos-init.md)
-- Simulation & Visualization: [BRD](docs/brds/uberos-simulation-visualization-brd.md) · [PRD](docs/prds/uberos-simulation-visualization.md)
+- PRD (init): [docs/prds/001-uberos-init.md](docs/prds/001-uberos-init.md)
+- Simulation & Visualization: [BRD](docs/brds/003-uberos-simulation-visualization-brd.md) · [PRD](docs/prds/003-uberos-simulation-visualization.md)
 - Decisions: [docs/decisions/](docs/decisions/)
 
 > **Note:** The primary ROS distribution (Kilted) passed SPIKE-A image and
