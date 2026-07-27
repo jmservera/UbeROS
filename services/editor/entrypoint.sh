@@ -2,7 +2,7 @@
 set -eu
 
 CURATED_DIR="/opt/uberos/curated-extensions"
-TARGET_DIR="/home/coder/.local/share/code-server/extensions"
+TARGET_DIR="${HOME:-/home/coder}/.local/share/code-server/extensions"
 
 mkdir -p "${TARGET_DIR}"
 
