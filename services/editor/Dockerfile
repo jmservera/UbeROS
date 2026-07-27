@@ -30,17 +30,17 @@ RUN mkdir -p /home/coder/.config/code-server \
 USER coder
 
 # --- Baked ROS/robotics developer extensions (Theme H, FR-H2) -----------------
-# This curated set is FIXED and ALWAYS-ON: it is installed at build time and is
-# NOT user-selectable. Every UbeROS editor ships with the same ROS + language
-# tooling out of the box, with no per-user configuration required.
+# This curated baseline is FIXED: it is installed at build time and is
+# not user-selectable (the curated set is the same for every container).
+# Every UbeROS editor ships with the same ROS + language
 #
 # Curated set (all resolve on Open VSX, the marketplace code-server queries):
 #   Ranch-Hand-Robotics.rde-ros-2          ROS 2 developer extensions (the
 #                                          maintained successor to the classic
 #                                          ms-iot.vscode-ros, which is not on
 #                                          Open VSX).
-#   ms-python.python                       Python language support (rospy nodes).
-#   llvm-vs-code-extensions.vscode-clangd  C/C++ IntelliSense via clangd (roscpp);
+#   ms-python.python                       Python language support (ROS 2 rclpy nodes).
+#   llvm-vs-code-extensions.vscode-clangd  C/C++ IntelliSense via clangd (ROS 2 rclcpp);
 #                                          installs cleanly on Open VSX where the
 #                                          proprietary ms-vscode.cpptools is not
 #                                          redistributable.
@@ -57,6 +57,14 @@ USER coder
 # dir and persist together. (Note: a volume already populated from a build
 # before this change is not retro-seeded — recreate the `editor-data` volume, or
 # start a fresh container, to pick up the baked set.)
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        clangd \
+        cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+USER coder
 RUN code-server \
         --install-extension Ranch-Hand-Robotics.rde-ros-2@1.0.9 \
         --install-extension ms-python.python@2026.4.0 \
