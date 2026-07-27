@@ -57,7 +57,12 @@ guard_unpinned() {
       # separator; what remains still shows whether a real tag was supplied.
       probe = ref
       gsub(/\$\{[^}]*\}/, "X", probe)
-      if (probe ~ /:latest$/ || probe !~ /:/) {
+      # Only the last path segment can hold a tag. A ":" earlier in the
+      # reference belongs to a registry host:port (localhost:5000/org/image),
+      # which is still unpinned.
+      last = probe
+      sub(/.*\//, "", last)
+      if (probe ~ /:latest$/ || last !~ /:/) {
         printf "  unpinned image reference on line %d: %s\n", NR, ref > "/dev/stderr"
         bad = 1
       }
