@@ -100,7 +100,13 @@ env_value() {
 # otherwise Docker creates it as root and the container user cannot write.
 ensure_workspace() {
   workspace="$(env_value UBEROS_WORKSPACE)"
-  workspace="${workspace:-${ROOT_DIR}/workspace}"
+  workspace="${workspace:-./workspace}"
+  # Compose resolves relative bind-mount paths against the project directory
+  # (ROOT_DIR), not the caller's cwd, so anchor relative values the same way.
+  case "${workspace}" in
+    /*) ;;
+    *) workspace="${ROOT_DIR}/${workspace}" ;;
+  esac
   if [ ! -d "${workspace}/src" ]; then
     mkdir -p "${workspace}/src" || die "could not create workspace at ${workspace}/src"
     log "Created ROS workspace at ${workspace}"
