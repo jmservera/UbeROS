@@ -15,7 +15,7 @@
     "@babel/runtime": "^7.18.0",
     "gzweb": "^3.0.1",
     "three": "^0.141.0",
-    "protobufjs": "^6.11.3"
+    "protobufjs": "^7.6.5"
   },
   "devDependencies": {
     "vite": "^8.1.5"
