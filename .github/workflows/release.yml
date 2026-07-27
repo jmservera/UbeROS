@@ -59,13 +59,18 @@ jobs:
           # A hyphen marks a semver pre-release (e.g. 0.4.0-beta); publish the
           # moving :beta tag alongside the pinned version (docs/VERSIONING.md).
           case "${version}" in
-            *-*) tags="${tags},${image}:beta" ;;
+            *-*) tags="$(printf '%s\n%s' "${tags}" "${image}:beta")" ;;
           esac
+          # docker/build-push-action expects one tag per line, so `tags` must be
+          # emitted as a multiline output (heredoc form), never comma-joined.
           {
             echo "version=${version}"
-            echo "tags=${tags}"
+            echo "tags<<TAGS_EOF"
+            echo "${tags}"
+            echo "TAGS_EOF"
           } >> "${GITHUB_OUTPUT}"
-          echo "Publishing ${{ matrix.service }} as: ${tags}"
+          echo "Publishing ${{ matrix.service }} as:"
+          echo "${tags}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

@@ -23,6 +23,10 @@ ROOT_DIR="${SCRIPT_DIR}"
 ENV_TEMPLATE="${ROOT_DIR}/.env.template"
 ENV_FILE="${ROOT_DIR}/.env"
 
+# Default ROS workspace location (FR-F1, BR-009). Deliberately outside the
+# source checkout so colcon build/install/log output never dirties the repo.
+DEFAULT_WORKSPACE="${HOME:-${ROOT_DIR}}/uberos-workspace"
+
 MODE="" # empty => auto-detect
 
 log() { printf '%s\n' "$*"; }
@@ -80,17 +84,38 @@ ensure_env() {
   fi
   [ -f "${ENV_TEMPLATE}" ] || die "missing ${ENV_TEMPLATE}; cannot generate .env"
   cp "${ENV_TEMPLATE}" "${ENV_FILE}"
-  log "Generated .env from .env.template."
+  # The template ships UBEROS_WORKSPACE empty on purpose; resolve it to an
+  # external directory so the source checkout stays clean (FR-F1, BR-009).
+  sed "s|^UBEROS_WORKSPACE=\$|UBEROS_WORKSPACE=${DEFAULT_WORKSPACE}|" \
+    "${ENV_FILE}" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "${ENV_FILE}"
+  log "Generated .env from .env.template (workspace: ${DEFAULT_WORKSPACE})."
+}
+
+# Read a key from .env, ignoring comments and returning the first match.
+env_value() {
+  grep -E "^$1=" "${ENV_FILE}" 2>/dev/null | head -n1 | cut -d= -f2-
+}
+
+# Make sure the workspace `src` directory exists before compose bind-mounts it;
+# otherwise Docker creates it as root and the container user cannot write.
+ensure_workspace() {
+  workspace="$(env_value UBEROS_WORKSPACE)"
+  workspace="${workspace:-${ROOT_DIR}/workspace}"
+  if [ ! -d "${workspace}/src" ]; then
+    mkdir -p "${workspace}/src" || die "could not create workspace at ${workspace}/src"
+    log "Created ROS workspace at ${workspace}"
+  fi
 }
 
 install_local() {
   [ -f "${ROOT_DIR}/compose.yaml" ] || die "local mode requires compose.yaml at ${ROOT_DIR}"
   ensure_env
+  ensure_workspace
   log "Building UbeROS images from source..."
   ( cd "${ROOT_DIR}" && compose build )
   log "Starting the UbeROS stack..."
   ( cd "${ROOT_DIR}" && compose up -d )
-  port="$(grep -E '^UBEROS_PORT=' "${ENV_FILE}" 2>/dev/null | head -n1 | cut -d= -f2)"
+  port="$(env_value UBEROS_PORT)"
   port="${port:-8080}"
   log "UbeROS is starting. Open the UI at http://localhost:${port}"
 }
