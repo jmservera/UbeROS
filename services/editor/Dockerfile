@@ -58,10 +58,10 @@ USER coder
 # before this change is not retro-seeded — recreate the `editor-data` volume, or
 # start a fresh container, to pick up the baked set.)
 RUN code-server \
-        --install-extension Ranch-Hand-Robotics.rde-ros-2 \
-        --install-extension ms-python.python \
-        --install-extension llvm-vs-code-extensions.vscode-clangd \
-        --install-extension redhat.vscode-yaml \
-        --install-extension ms-vscode.cmake-tools
+        --install-extension Ranch-Hand-Robotics.rde-ros-2@1.2.1 \
+        --install-extension ms-python.python@2026.6.0 \
+        --install-extension llvm-vs-code-extensions.vscode-clangd@0.6.0 \
+        --install-extension redhat.vscode-yaml@1.24.2026063009 \
+        --install-extension ms-vscode.cmake-tools@1.23.52
 
 EXPOSE 8443
