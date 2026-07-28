@@ -112,6 +112,19 @@ pass "repo-local workspace copied into the external workspace"
   || fail "migration deleted the source workspace"
 pass "source workspace left untouched"
 
+# A populated target must never be merged into, not even with --migrate: tar
+# extraction would silently replace same-path files.
+WS_FULL="${SANDBOX}/ws-populated"
+mkdir -p "${WS_FULL}/src/mine"
+printf 'keep me\n' > "${WS_FULL}/src/mine/package.xml"
+sh "${INSTALL}" -y --workspace "${WS_FULL}" --migrate --dry-run >/dev/null \
+  || fail "install into a populated workspace"
+[ "$(cat "${WS_FULL}/src/mine/package.xml")" = 'keep me' ] \
+  || fail "migration overwrote an existing workspace file"
+[ ! -e "${WS_FULL}/src/demo_pkg" ] \
+  || fail "migration merged into a populated workspace"
+pass "populated workspace never merged into, even with --migrate"
+
 printf '\n== defaults accepted non-interactively (FR-E1) ==\n'
 rm -f "${INSTALL_ROOT}/.env"
 HOME="${SANDBOX}/home" && mkdir -p "${HOME}"

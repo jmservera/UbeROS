@@ -86,7 +86,9 @@ Options:
   --gpu <none|gpu|intel|wsl>
                             GPU overlay to apply. Default: none
   --migrate | --no-migrate  Copy (or skip copying) an existing ./workspace/src
-                            into the external workspace without prompting.
+                            into the external workspace without prompting. The
+                            copy is skipped when the target workspace already
+                            has content, so nothing there is ever overwritten.
   --dry-run                 Resolve and validate the configuration, write .env,
                             and provision the workspace, but do not build or
                             start anything.
@@ -375,6 +377,16 @@ migrate_legacy_workspace() {
   [ -n "$(ls -A "${LEGACY_WORKSPACE}/src" 2>/dev/null || true)" ] || return 0
   # Nothing to migrate when the checkout IS the configured workspace.
   [ "${LEGACY_WORKSPACE}/src" != "${_target}" ] || return 0
+  # Never merge into a workspace that already holds packages: the copy is a tar
+  # extraction, so same-path files would be replaced with no way to tell the
+  # user what was lost. This is the same rule seed_workspace_repo applies to
+  # cloning, and it keeps --migrate safe by construction rather than relying on
+  # the user reading the prompt.
+  if [ -n "$(ls -A "${_target}" 2>/dev/null || true)" ]; then
+    log "Workspace ${_target} already has content; skipping migration of ${LEGACY_WORKSPACE}/src."
+    log "Nothing was changed; copy anything you still need across yourself."
+    return 0
+  fi
 
   case "${MIGRATE}" in
     no|NO|n|N|false)
