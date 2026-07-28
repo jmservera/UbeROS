@@ -43,11 +43,19 @@ CONFIG_FILE=""
 MIGRATE=""           # empty => ask; yes | no when forced from the CLI/config
 DRY_RUN=""           # non-empty => configure and provision, but never call Docker
 
-# Answers. Empty means "not supplied yet"; the wizard or the defaults fill them.
-OPT_WORKSPACE="${UBEROS_WORKSPACE:-}"
+# Answers supplied on the command line or through --config. Empty means "not
+# supplied yet"; the wizard or the defaults fill them in.
+#
+# An exported UBEROS_WORKSPACE is deliberately kept out of OPT_WORKSPACE: if it
+# were seeded here, --config could never override it, because load_config only
+# writes into an empty OPT_*. Answer precedence is therefore
+#   command line > --config > environment > existing .env > built-in default.
+OPT_WORKSPACE=""
 OPT_PORT=""
 OPT_GPU=""
 OPT_WORKSPACE_REPO=""
+
+ENV_WORKSPACE="${UBEROS_WORKSPACE:-}"
 
 DEFAULT_PORT="8080"
 DEFAULT_GPU="none"
@@ -87,6 +95,10 @@ Options:
 
 Config file keys (all optional):
   UBEROS_WORKSPACE, UBEROS_WORKSPACE_REPO, UBEROS_PORT, UBEROS_GPU, UBEROS_MIGRATE
+
+Answer precedence (highest first):
+  command line, --config file, environment (UBEROS_*), existing .env, defaults.
+Answers fixed on the command line or in --config are never prompted for.
 
 Local mode builds every service image from source and starts the stack. Once it
 is up, open the UbeROS UI through the proxy (default http://localhost:8080).
@@ -240,6 +252,9 @@ validate_gpu() {
 
 # Parse a KEY=VALUE answers file. Parsed line by line against an allowlist
 # rather than sourced, so a config file can never execute arbitrary commands.
+# A key is only applied when the matching OPT_* is still empty, which is what
+# makes the command line win over the file. The environment is applied later,
+# as a wizard default, so --config still overrides an exported UBEROS_*.
 load_config() {
   _file="$1"
   [ -f "${_file}" ] || die "config file not found: ${_file}"
@@ -267,41 +282,54 @@ load_config() {
 
 # Collect and validate every answer. Prompts when a terminal is available and
 # --non-interactive was not requested; otherwise defaults and CLI/config values
-# are used as-is. Values already fixed on the command line are never re-asked.
+# are used as-is. Answers already fixed on the command line or in --config are
+# validated but never re-asked.
 run_wizard() {
-  # Values already in .env win over the built-in defaults so re-running the
-  # installer never silently resets a port or workspace the user changed by
-  # hand. Explicit CLI/config answers still take precedence over both.
-  _default_ws="${OPT_WORKSPACE:-$(env_value UBEROS_WORKSPACE)}"
+  # Defaults for the answers nobody supplied: an exported UBEROS_WORKSPACE
+  # first, then the existing .env so re-running the installer never silently
+  # resets a port or workspace the user changed by hand, then the built-in
+  # default.
+  _default_ws="${ENV_WORKSPACE:-$(env_value UBEROS_WORKSPACE)}"
   [ -n "${_default_ws}" ] || _default_ws="${HOME:+${HOME}/uberos-workspace}"
-  _default_port="${OPT_PORT:-$(env_value UBEROS_PORT)}"
+  _default_port="$(env_value UBEROS_PORT)"
   [ -n "${_default_port}" ] || _default_port="${DEFAULT_PORT}"
-  _default_gpu="${OPT_GPU:-${DEFAULT_GPU}}"
+  _default_gpu="${DEFAULT_GPU}"
 
   if can_prompt; then
-    log ""
-    log "UbeROS setup - press Enter to accept the value in brackets."
-    log ""
-    while :; do
-      OPT_WORKSPACE="$(ask "ROS workspace directory (outside this checkout)" "${_default_ws}")"
-      validate_workspace "${OPT_WORKSPACE}" && break
-    done
-    while :; do
-      OPT_PORT="$(ask "Host port for the UbeROS UI" "${_default_port}")"
-      validate_port "${OPT_PORT}" && break
-    done
-    while :; do
-      OPT_GPU="$(ask "GPU overlay (none, gpu, intel, wsl)" "${_default_gpu}")"
-      validate_gpu "${OPT_GPU}" && break
-    done
-    log ""
+    # Skip the banner entirely when the command line or --config already
+    # answered everything; there would be nothing left to ask.
+    if [ -z "${OPT_WORKSPACE}" ] || [ -z "${OPT_PORT}" ] || [ -z "${OPT_GPU}" ]; then
+      log ""
+      log "UbeROS setup - press Enter to accept the value in brackets."
+      log ""
+      while [ -z "${OPT_WORKSPACE}" ]; do
+        OPT_WORKSPACE="$(ask "ROS workspace directory (outside this checkout)" "${_default_ws}")"
+        validate_workspace "${OPT_WORKSPACE}" || OPT_WORKSPACE=""
+      done
+      while [ -z "${OPT_PORT}" ]; do
+        OPT_PORT="$(ask "Host port for the UbeROS UI" "${_default_port}")"
+        validate_port "${OPT_PORT}" || OPT_PORT=""
+      done
+      while [ -z "${OPT_GPU}" ]; do
+        OPT_GPU="$(ask "GPU overlay (none, gpu, intel, wsl)" "${_default_gpu}")"
+        validate_gpu "${OPT_GPU}" || OPT_GPU=""
+      done
+      log ""
+    fi
   else
-    OPT_WORKSPACE="${_default_ws}"
-    OPT_PORT="${_default_port}"
-    OPT_GPU="${_default_gpu}"
-    validate_workspace "${OPT_WORKSPACE}" || exit 1
-    validate_port "${OPT_PORT}" || exit 1
-    validate_gpu "${OPT_GPU}" || exit 1
+    OPT_WORKSPACE="${OPT_WORKSPACE:-${_default_ws}}"
+    OPT_PORT="${OPT_PORT:-${_default_port}}"
+    OPT_GPU="${OPT_GPU:-${_default_gpu}}"
+  fi
+
+  # The prompt loops above only exit on a valid answer, but values that came
+  # from the command line or --config skipped them entirely, so validate the
+  # final set once here regardless of how it was assembled.
+  validate_workspace "${OPT_WORKSPACE}" || exit 1
+  validate_port "${OPT_PORT}" || exit 1
+  validate_gpu "${OPT_GPU}" || exit 1
+
+  if ! can_prompt; then
     log "Non-interactive setup: workspace=${OPT_WORKSPACE} port=${OPT_PORT} gpu=${OPT_GPU}"
   fi
 }
@@ -369,8 +397,22 @@ migrate_legacy_workspace() {
   esac
 
   log "Copying ${LEGACY_WORKSPACE}/src -> ${_target}..."
-  ( cd "${LEGACY_WORKSPACE}/src" && tar cf - . ) | ( cd "${_target}" && tar xf - ) \
-    || die "migration copy failed; ${LEGACY_WORKSPACE}/src was left untouched"
+  # A POSIX pipeline reports only the exit status of its last command, so a
+  # failure while creating the archive would be masked by a successful (but
+  # short) extraction. Record the producer's status in a marker file and check
+  # both ends before declaring the copy done.
+  _tar_status="$(mktemp "${TMPDIR:-/tmp}/uberos-migrate-status.XXXXXX")"
+  {
+    ( cd "${LEGACY_WORKSPACE}/src" && tar cf - . ) || printf 'failed\n' > "${_tar_status}"
+  } | ( cd "${_target}" && tar xf - ) || {
+    rm -f "${_tar_status}"
+    die "migration copy failed; ${LEGACY_WORKSPACE}/src was left untouched"
+  }
+  if [ -s "${_tar_status}" ]; then
+    rm -f "${_tar_status}"
+    die "migration copy failed while reading ${LEGACY_WORKSPACE}/src; it was left untouched"
+  fi
+  rm -f "${_tar_status}"
 
   # Verify every source file landed in the target before declaring success.
   # The report lives in a temp file so a failed migration never leaves a stray

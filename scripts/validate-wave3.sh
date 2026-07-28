@@ -9,12 +9,16 @@
 #     content without deleting the source
 #   * the generated compose.release.yaml has no build contexts, pins every
 #     service image, validates with docker compose, and the unpinned-tag guard
-#     rejects floating tags
+#     rejects moving tags
 #
 # Installer flows run inside a disposable sandbox (a copy of install.sh plus a
 # stub compose.yaml) so the harness never touches the developer's .env or
 # workspace. Exits non-zero on the first failure.
 set -eu
+
+# The installer reads UBEROS_WORKSPACE from the environment. Clear it so the
+# results do not depend on whatever the developer happens to have exported.
+unset UBEROS_WORKSPACE || true
 
 REPO="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)"
 cd "${REPO}"
@@ -140,6 +144,35 @@ grep -q "^UBEROS_WORKSPACE=${ODD}$" "${INSTALL_ROOT}/.env" \
   || fail ".env corrupted by special characters"
 pass "workspace path with & and | written verbatim"
 
+printf '\n== answer precedence (CLI > --config > environment) ==\n'
+rm -f "${INSTALL_ROOT}/.env"
+UBEROS_WORKSPACE="${SANDBOX}/from-env" \
+  sh "${INSTALL}" -y --no-migrate --dry-run >/dev/null \
+  || fail "install with an exported UBEROS_WORKSPACE"
+grep -q "^UBEROS_WORKSPACE=${SANDBOX}/from-env$" "${INSTALL_ROOT}/.env" \
+  || fail "exported UBEROS_WORKSPACE was ignored"
+pass "an exported UBEROS_WORKSPACE is used when nothing else supplies one"
+
+rm -f "${INSTALL_ROOT}/.env"
+cat > "${SANDBOX}/override.conf" <<EOF
+UBEROS_WORKSPACE=${SANDBOX}/from-config
+UBEROS_MIGRATE=no
+EOF
+UBEROS_WORKSPACE="${SANDBOX}/from-env" \
+  sh "${INSTALL}" --config "${SANDBOX}/override.conf" --dry-run >/dev/null \
+  || fail "install with both an exported workspace and a config file"
+grep -q "^UBEROS_WORKSPACE=${SANDBOX}/from-config$" "${INSTALL_ROOT}/.env" \
+  || fail "exported UBEROS_WORKSPACE silently overrode the --config answer"
+pass "--config overrides an exported UBEROS_WORKSPACE"
+
+rm -f "${INSTALL_ROOT}/.env"
+UBEROS_WORKSPACE="${SANDBOX}/from-env" \
+  sh "${INSTALL}" --config "${SANDBOX}/override.conf" --workspace "${SANDBOX}/from-cli" --dry-run >/dev/null \
+  || fail "install with a CLI workspace plus a config file"
+grep -q "^UBEROS_WORKSPACE=${SANDBOX}/from-cli$" "${INSTALL_ROOT}/.env" \
+  || fail "--workspace did not win over --config"
+pass "--workspace overrides --config"
+
 # --- Release compose generator (PR-11) ---------------------------------------
 printf '\n== release compose generation (FR-B4) ==\n'
 sh scripts/gen-compose-release.sh v0.0.0-validation >/dev/null || fail "generator"
@@ -165,6 +198,18 @@ pass "guard rejects floating :latest tags"
 sed 's|ghcr.io/\([^:]*\):0.0.0-validation|localhost:5000/\1|' compose.release.yaml > "$tmp"
 expect_failure 'unpinned image reference' sh scripts/gen-compose-release.sh --check "$tmp"
 pass "guard rejects a tagless registry:port reference"
+
+# release.yml republishes :beta on every pre-release, so a bundle pinned to it
+# would change under the user's feet. The immutable :<version>-beta tag must
+# still be accepted.
+sed 's|\(ghcr.io/[^:]*\):0.0.0-validation|\1:beta|' compose.release.yaml > "$tmp"
+expect_failure 'unpinned image reference' sh scripts/gen-compose-release.sh --check "$tmp"
+pass "guard rejects the moving :beta tag"
+
+sed 's|\(ghcr.io/[^:]*\):0.0.0-validation|\1:0.4.0-beta|' compose.release.yaml > "$tmp"
+sh scripts/gen-compose-release.sh --check "$tmp" >/dev/null \
+  || fail "guard rejected an immutable pre-release version tag"
+pass "guard accepts an immutable :0.4.0-beta version tag"
 
 sh scripts/gen-compose-release.sh --check compose.release.yaml >/dev/null \
   || fail "guard rejected a fully pinned file"

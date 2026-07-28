@@ -9,7 +9,8 @@
 # compose files never drift.
 #
 # It then runs the unpinned-tag guard (FR-B9): any `image:` reference without a
-# tag, or pinned to a floating tag such as `latest`, fails the run.
+# tag, or pinned to one of the moving tags the release workflow republishes
+# (`latest`, `beta`), fails the run.
 #
 # Usage:
 #   sh scripts/gen-compose-release.sh <version>      # generate + guard
@@ -24,7 +25,10 @@ ROOT_DIR="$(CDPATH='' cd -- "${SCRIPT_DIR}/.." && pwd -P)"
 SRC_COMPOSE="${ROOT_DIR}/compose.yaml"
 OUT_COMPOSE="${ROOT_DIR}/compose.release.yaml"
 
-# Must match IMAGE_NAMESPACE in .github/workflows/release.yml.
+# .github/workflows/release.yml passes its own IMAGE_NAMESPACE through as
+# UBEROS_IMAGE_NAMESPACE, so the registry the images are pushed to and the one
+# written into compose.release.yaml cannot drift apart. The literal below is
+# only a convenience for local runs and must match the workflow's value.
 IMAGE_NAMESPACE="${UBEROS_IMAGE_NAMESPACE:-ghcr.io/jmservera/uberos}"
 
 log() { printf '%s\n' "$*"; }
@@ -43,9 +47,12 @@ EOF
 }
 
 # FR-B9: reject any image reference that is not pinned. A reference is unpinned
-# when it carries no tag at all (implicit :latest) or an explicitly floating tag
-# (`latest`). Env-substituted tags such as ros:${ROS_DISTRO:-kilted} are pinned
-# by .env and are allowed.
+# when it carries no tag at all (implicit :latest) or when it uses a moving tag.
+# The moving tags are `latest` and `beta` -- release.yml republishes `:beta` on
+# every pre-release, so a bundle pinned to it would change under the user's
+# feet. Env-substituted tags such as ros:${ROS_DISTRO:-kilted} resolve from .env
+# and are allowed. A pre-release *version* tag (`:0.4.0-beta`) is immutable and
+# therefore fine; only the bare `:beta` suffix is rejected.
 guard_unpinned() {
   file="$1"
   [ -f "${file}" ] || die "guard: ${file} not found"
@@ -62,7 +69,7 @@ guard_unpinned() {
       # which is still unpinned.
       last = probe
       sub(/.*\//, "", last)
-      if (probe ~ /:latest$/ || last !~ /:/) {
+      if (probe ~ /:(latest|beta)$/ || last !~ /:/) {
         printf "  unpinned image reference on line %d: %s\n", NR, ref > "/dev/stderr"
         bad = 1
       }

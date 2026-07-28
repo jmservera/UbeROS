@@ -103,6 +103,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Generate compose.release.yaml
+        env:
+          # Keep the generator on the same registry the images were pushed to;
+          # without this the script would fall back to its own literal default.
+          UBEROS_IMAGE_NAMESPACE: ${{ env.IMAGE_NAMESPACE }}
         run: sh scripts/gen-compose-release.sh "${GITHUB_REF_NAME}"
 
       - name: Validate generated compose
