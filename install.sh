@@ -221,6 +221,25 @@ validate_workspace() {
       return 1
       ;;
   esac
+  # An existing workspace only has to be writable itself. Demanding a writable
+  # parent would reject perfectly good setups such as a user-owned
+  # /opt/uberos-workspace sitting under a root-owned /opt, where nothing needs
+  # to be created in the parent at all. -L catches a dangling symlink, which -e
+  # reports as missing and mkdir -p would later fail on with a cryptic error.
+  if [ -e "${_ws}" ] || [ -L "${_ws}" ]; then
+    if [ ! -d "${_ws}" ]; then
+      err "workspace '${_ws}' exists but is not a directory"
+      return 1
+    fi
+    if [ ! -w "${_ws}" ]; then
+      err "workspace '${_ws}' is not writable by the current user"
+      return 1
+    fi
+    return 0
+  fi
+  # The workspace still has to be created, so the parent must exist and be
+  # writable. Requiring the parent to exist also turns a mistyped path into an
+  # error instead of letting mkdir -p silently build a whole new tree.
   _parent="$(dirname "${_ws}")"
   if [ ! -d "${_parent}" ]; then
     err "workspace parent directory '${_parent}' does not exist; create it first or choose another path"
@@ -369,6 +388,29 @@ seed_workspace_repo() {
     || die "failed to clone ${OPT_WORKSPACE_REPO}"
 }
 
+# Undo a partial migration copy. Only ever called after the emptiness guard in
+# migrate_legacy_workspace proved the target held nothing of its own, so every
+# file removed here was written by this run. Without it a half-finished copy
+# would be left behind, and the emptiness guard would then refuse to retry the
+# migration on the next run.
+rollback_migration() {
+  # Belt and braces around an rm -rf: every caller passes "<workspace>/src", so
+  # anything else means the caller changed and the cleanup can no longer be
+  # assumed safe.
+  case "$1" in
+    */src) ;;
+    *)
+      err "refusing to clean up unexpected migration target '$1'; remove any partial copy yourself"
+      return 0
+      ;;
+  esac
+  log "Removing the partial copy in $1 so the migration can be retried..."
+  rm -rf "$1" \
+    || err "could not clean up the partial copy in $1; remove it before retrying"
+  mkdir -p "$1" \
+    || err "could not recreate $1; re-run the installer to provision it"
+}
+
 # Copy-then-verify migration of a repo-local ./workspace/src (FR-F4). The source
 # is never deleted automatically; the user is told how to remove it once happy.
 migrate_legacy_workspace() {
@@ -418,10 +460,12 @@ migrate_legacy_workspace() {
     ( cd "${LEGACY_WORKSPACE}/src" && tar cf - . ) || printf 'failed\n' > "${_tar_status}"
   } | ( cd "${_target}" && tar xf - ) || {
     rm -f "${_tar_status}"
+    rollback_migration "${_target}"
     die "migration copy failed; ${LEGACY_WORKSPACE}/src was left untouched"
   }
   if [ -s "${_tar_status}" ]; then
     rm -f "${_tar_status}"
+    rollback_migration "${_target}"
     die "migration copy failed while reading ${LEGACY_WORKSPACE}/src; it was left untouched"
   fi
   rm -f "${_tar_status}"
@@ -439,6 +483,7 @@ migrate_legacy_workspace() {
     err "missing files:"
     sed 's/^/  /' "${_report}" >&2
     rm -f "${_report}"
+    rollback_migration "${_target}"
     die "${LEGACY_WORKSPACE}/src was left untouched"
   fi
   rm -f "${_report}"

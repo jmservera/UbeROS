@@ -84,6 +84,40 @@ expect_failure "unknown key 'NOPE'" sh -c "
 "
 pass "unknown config key rejected"
 
+# An existing, writable workspace must be accepted even when its parent is not
+# writable (a user-owned /opt/uberos-workspace under a root-owned /opt): nothing
+# has to be created in the parent. Root ignores permission bits, so the check
+# would prove nothing there.
+if [ "$(id -u)" -ne 0 ]; then
+  RO_PARENT="${SANDBOX}/ro-parent"
+  mkdir -p "${RO_PARENT}/ws/src"
+  chmod a-w "${RO_PARENT}"
+  if sh "${INSTALL}" -y --workspace "${RO_PARENT}/ws" --no-migrate --dry-run >/dev/null 2>&1; then
+    chmod u+w "${RO_PARENT}"
+  else
+    chmod u+w "${RO_PARENT}"
+    fail "existing workspace under a non-writable parent was rejected"
+  fi
+  rm -f "${INSTALL_ROOT}/.env"
+  pass "existing workspace accepted under a non-writable parent"
+
+  # The flip side: relaxing the parent check must not make the validation
+  # toothless. A workspace the user cannot write to is still a hard error.
+  RO_WS="${SANDBOX}/ro-ws"
+  mkdir -p "${RO_WS}"
+  chmod a-w "${RO_WS}"
+  if sh "${INSTALL}" -y --workspace "${RO_WS}" --no-migrate --dry-run >/dev/null 2>&1; then
+    chmod u+w "${RO_WS}"
+    fail "a non-writable workspace was accepted"
+  fi
+  chmod u+w "${RO_WS}"
+  rm -f "${INSTALL_ROOT}/.env"
+  pass "non-writable existing workspace still rejected"
+else
+  pass "existing workspace under a non-writable parent (skipped: running as root)"
+  pass "non-writable existing workspace rejected (skipped: running as root)"
+fi
+
 printf '\n== silent install from a config file (FR-E2, FR-F2) ==\n'
 WS="${SANDBOX}/ws"
 cat > "${SANDBOX}/answers.conf" <<EOF
@@ -124,6 +158,31 @@ sh "${INSTALL}" -y --workspace "${WS_FULL}" --migrate --dry-run >/dev/null \
 [ ! -e "${WS_FULL}/src/demo_pkg" ] \
   || fail "migration merged into a populated workspace"
 pass "populated workspace never merged into, even with --migrate"
+
+# A copy that fails part-way must not leave a partial workspace behind: the
+# emptiness guard above would then refuse to retry the migration, stranding the
+# user with half their packages. An unreadable source file makes tar fail.
+if [ "$(id -u)" -ne 0 ]; then
+  BAD_ROOT="${SANDBOX}/checkout-unreadable"
+  mkdir -p "${BAD_ROOT}/services" "${BAD_ROOT}/workspace/src/demo_pkg"
+  cp install.sh .env.template "${BAD_ROOT}/"
+  printf 'services: {}\n' > "${BAD_ROOT}/compose.yaml"
+  printf '# demo\n' > "${BAD_ROOT}/workspace/src/demo_pkg/package.xml"
+  printf '# secret\n' > "${BAD_ROOT}/workspace/src/demo_pkg/unreadable.xml"
+  chmod 000 "${BAD_ROOT}/workspace/src/demo_pkg/unreadable.xml"
+  WS_FAIL="${SANDBOX}/ws-failed"
+  if sh "${BAD_ROOT}/install.sh" -y --workspace "${WS_FAIL}" --migrate --dry-run >/dev/null 2>&1; then
+    chmod 644 "${BAD_ROOT}/workspace/src/demo_pkg/unreadable.xml"
+    fail "migration reported success despite an unreadable source file"
+  fi
+  chmod 644 "${BAD_ROOT}/workspace/src/demo_pkg/unreadable.xml"
+  [ -d "${WS_FAIL}/src" ] || fail "rollback removed ${WS_FAIL}/src instead of emptying it"
+  [ -z "$(ls -A "${WS_FAIL}/src" 2>/dev/null || true)" ] \
+    || fail "failed migration left a partial copy in ${WS_FAIL}/src"
+  pass "failed migration rolls back the partial copy"
+else
+  pass "failed migration rollback (skipped: running as root)"
+fi
 
 printf '\n== defaults accepted non-interactively (FR-E1) ==\n'
 rm -f "${INSTALL_ROOT}/.env"
