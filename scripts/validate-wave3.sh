@@ -301,6 +301,9 @@ cat > "${FAKE_BIN}/docker" <<EOF
 printf '%s\n' "\$*" >> "${DOCKER_LOG}"
 case "\$*" in
   'compose version') exit 0 ;;
+  *' config --services')
+    printf '%s\n' discovery-server ros gazebo turtlesim editor frontend control proxy
+    ;;
 esac
 exit 0
 EOF
@@ -321,6 +324,18 @@ pass "source-free release mode pulls and starts pinned images with its GPU overl
 
 : > "${DOCKER_LOG}"
 PATH="${FAKE_BIN}:${PATH}" sh "${RELEASE_ROOT}/install.sh" -y \
+  --workspace "${RELEASE_WS}" --learning-packages none --no-migrate >/dev/null \
+  || fail "release learning-package deselection"
+grep 'pull ' "${DOCKER_LOG}" | grep -q 'turtlesim' \
+  && fail "deselected turtlesim was still pulled in release mode"
+grep 'up -d ' "${DOCKER_LOG}" | grep -q 'turtlesim' \
+  && fail "deselected turtlesim was still started in release mode"
+grep -q 'compose .* rm -s -f turtlesim' "${DOCKER_LOG}" \
+  || fail "release deselection did not remove an existing turtlesim service"
+pass "release mode omits the deselected turtlesim image and service"
+
+: > "${DOCKER_LOG}"
+PATH="${FAKE_BIN}:${PATH}" sh "${RELEASE_ROOT}/install.sh" -y \
   --workspace "${RELEASE_WS}" --upgrade --no-migrate >/dev/null \
   || fail "release upgrade"
 grep -q 'compose .* pull' "${DOCKER_LOG}" || fail "upgrade did not refresh images"
@@ -335,6 +350,48 @@ expect_failure 'checksum verification failed' env PATH="${FAKE_BIN}:${PATH}" \
 [ ! -s "${DOCKER_LOG}" ] || fail "tampered bundle reached Docker before rejection"
 pass "tampered release bundle is rejected before Docker runs"
 
+# --- Learning-package selection (PR-14) -------------------------------------
+printf '\n== learning-package selection (FR-H1, FR-H4, FR-H5) ==\n'
+PACKAGE_ROOT="${SANDBOX}/packages"
+PACKAGE_WS="${SANDBOX}/packages-ws"
+mkdir -p "${PACKAGE_ROOT}/services"
+cp install.sh .env.template "${PACKAGE_ROOT}/"
+cp compose.override.gpu.yaml compose.override.intel.yaml compose.override.wsl.yaml \
+  "${PACKAGE_ROOT}/"
+printf 'services: {}\n' > "${PACKAGE_ROOT}/compose.yaml"
+
+: > "${DOCKER_LOG}"
+PATH="${FAKE_BIN}:${PATH}" sh "${PACKAGE_ROOT}/install.sh" -y \
+  --workspace "${PACKAGE_WS}" --no-migrate >/dev/null \
+  || fail "default learning-package install"
+grep -q '^UBEROS_LEARNING_PACKAGES=turtlesim$' "${PACKAGE_ROOT}/.env" \
+  || fail "default learning package was not persisted"
+grep -q '^UBEROS_SIMULATORS=gazebo,turtlesim$' "${PACKAGE_ROOT}/.env" \
+  || fail "default simulator install set does not include turtlesim"
+grep -q 'build .*turtlesim' "${DOCKER_LOG}" \
+  || fail "default local build omitted the selected turtlesim package"
+pass "turtlesim is selected and built by default"
+
+: > "${DOCKER_LOG}"
+PATH="${FAKE_BIN}:${PATH}" sh "${PACKAGE_ROOT}/install.sh" -y \
+  --workspace "${PACKAGE_WS}" --learning-packages none --no-migrate >/dev/null \
+  || fail "learning-package deselection"
+grep -q '^UBEROS_LEARNING_PACKAGES=none$' "${PACKAGE_ROOT}/.env" \
+  || fail "learning-package deselection was not persisted"
+grep -q '^UBEROS_SIMULATORS=gazebo$' "${PACKAGE_ROOT}/.env" \
+  || fail "turtlesim remained in the simulator install set"
+grep -q 'compose .* rm -s -f turtlesim' "${DOCKER_LOG}" \
+  || fail "deselection did not remove an existing turtlesim service"
+grep 'build ' "${DOCKER_LOG}" | grep -q 'turtlesim' \
+  && fail "deselected turtlesim was still built"
+grep 'up -d ' "${DOCKER_LOG}" | grep -q 'turtlesim' \
+  && fail "deselected turtlesim was still started"
+pass "deselecting turtlesim omits its image and service"
+
+expect_failure 'invalid learning packages' sh "${PACKAGE_ROOT}/install.sh" -y \
+  --workspace "${PACKAGE_WS}" --learning-packages gazebo --no-migrate --dry-run
+pass "unknown learning package rejected"
+
 # --- Release compose generator (PR-11) ---------------------------------------
 printf '\n== release compose generation (FR-B4) ==\n'
 sh scripts/gen-compose-release.sh v0.0.0-validation >/dev/null || fail "generator"
@@ -347,6 +404,9 @@ expected=8
 found="$(grep -c 'ghcr.io/.*:0.0.0-validation' compose.release.yaml)"
 [ "$found" -eq "$expected" ] || fail "expected $expected pinned service images, found $found"
 pass "$found services pinned to the release version"
+grep -q 'image: ghcr.io/jmservera/uberos/learning-turtlesim:0.0.0-validation' \
+  compose.release.yaml || fail "turtlesim was not mapped to its learning-package image"
+pass "turtlesim uses its independently published learning-package image"
 
 docker compose -f compose.release.yaml config >/dev/null || fail "docker compose config"
 pass "docker compose -f compose.release.yaml config"
@@ -397,4 +457,4 @@ sh scripts/gen-compose-release.sh --check "$tmp" >/dev/null \
   || fail "guard rejected a mount nested under a bundled path"
 pass "guard accepts a mount nested under a bundled path"
 
-printf '\nWave 3 + PR-13 validation: all checks passed.\n'
+printf '\nWave 3 + PR-13/PR-14 validation: all checks passed.\n'

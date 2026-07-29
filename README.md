@@ -2,7 +2,7 @@
 title: ÜbeROS
 description: Browser-accessible ROS development and simulation environment running on Docker Compose.
 author: UbeROS Team
-ms.date: 2026-07-23
+ms.date: 2026-07-29
 ms.topic: overview
 ---
 
@@ -33,6 +33,7 @@ a default for each. For an unattended setup, pass the answers instead:
 ```bash
 ./install.sh --non-interactive --workspace ~/uberos-workspace --port 8080 --gpu none
 ./install.sh --config answers.conf     # same keys, read from a KEY=VALUE file
+./install.sh --learning-packages none  # omit the optional Turtlesim package
 ```
 
 Re-running it is safe: your `.env` is kept and only the answers you change are
@@ -101,6 +102,7 @@ Settings live in `.env` (committed defaults contain no secrets):
 | `UBEROS_PORT` | `8080` | Host port for the proxy |
 | `UBEROS_WORKSPACE` | `$HOME/uberos-workspace` | Host ROS workspace bind-mounted at `/ros_ws/src` |
 | `UBEROS_GPU` | `none` | GPU overlay `install.sh` applies (`none`, `nvidia`, `intel`, `wsl`) |
+| `UBEROS_LEARNING_PACKAGES` | `turtlesim` | Optional learning-package images and services selected by the installer (`turtlesim` or `none`) |
 | `ROS_DOMAIN_ID` | `42` | DDS domain (cross-platform-safe range) |
 | `UBEROS_AUTH` | `off` | Set to `basic` to enable proxy authentication |
 | `UBEROS_SERVICES` | `ros,gazebo,editor,frontend` | Services the system menu may reset |
@@ -139,6 +141,23 @@ Which simulators the menu offers is selected at runtime by a single setting in
 | Turtlesim only | `turtlesim` |
 
 Verify the installed set with `curl -s http://localhost:8080/control/simulators`.
+
+### Learning packages
+
+The installer includes the Turtlesim learning package by default. Its image is
+published independently as `ghcr.io/jmservera/uberos/learning-turtlesim` and is
+selected with `UBEROS_LEARNING_PACKAGES=turtlesim`.
+
+To install the core environment without learning packages, run:
+
+```bash
+./install.sh --learning-packages none
+```
+
+The installer then skips the Turtlesim image during local builds and release
+pulls, omits its service from startup, removes an existing Turtlesim container,
+and records `UBEROS_SIMULATORS=gazebo` so the menu exposes only installed
+simulators. Re-run with `--learning-packages turtlesim` to add it later.
 
 ### GPU acceleration (opt-in)
 
