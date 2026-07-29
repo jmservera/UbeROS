@@ -1,4 +1,4 @@
-name: Release — Build & Push Images
+name: Release — Build, Bundle & Publish
 # UbeROS release pipeline (Theme B, FR-B1/FR-B2/FR-B3). On a `v*` version tag,
 # build every service image for linux/amd64 and push it to GitHub Container
 # Registry (ghcr.io) tagged with the release version. Pre-release tags (a `-`
@@ -7,8 +7,9 @@ name: Release — Build & Push Images
 # the UBEROS_VERSION build-arg, which stamps the OCI version label (FR-A5, PR-3)
 # and the control /version endpoint default.
 #
-# Bundle assembly, checksums, release notes, and the GitHub Release itself land
-# in a later pipeline stage (PR-12); this stage only publishes images.
+# After every image is available, the pipeline generates the pinned Compose
+# definition, assembles and verifies both bundle formats, then publishes the
+# checksummed artifacts and generated notes to the tag's GitHub Release.
 
 on:
   push:
@@ -121,3 +122,149 @@ jobs:
           name: compose-release
           path: compose.release.yaml
           if-no-files-found: error
+
+  publish-release:
+    needs: compose-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download compose.release.yaml
+        uses: actions/download-artifact@v4
+        with:
+          name: compose-release
+          path: release-input
+
+      - name: Derive release metadata
+        id: meta
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          archive_base="uberos-${version}"
+          prerelease=false
+          case "${version}" in
+            *-*) prerelease=true ;;
+          esac
+          {
+            echo "version=${version}"
+            echo "archive_base=${archive_base}"
+            echo "prerelease=${prerelease}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Generate release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="${GITHUB_REF_NAME}" \
+            -f target_commitish="${GITHUB_SHA}" \
+            --jq .body > RELEASE_NOTES.md
+          test -s RELEASE_NOTES.md
+
+      - name: Assemble release bundle
+        env:
+          ARCHIVE_BASE: ${{ steps.meta.outputs.archive_base }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          bundle="dist/${ARCHIVE_BASE}"
+          mkdir -p "${bundle}/config" "${bundle}/simulation"
+          cp release-input/compose.release.yaml "${bundle}/"
+          cp compose.override.gpu.yaml compose.override.intel.yaml compose.override.wsl.yaml "${bundle}/"
+          cp install.sh .env.template RELEASE_NOTES.md "${bundle}/"
+          git archive --format=tar HEAD -- config/nginx simulation \
+            | tar -x -C "${bundle}"
+          printf '%s\n' "${VERSION}" > "${bundle}/VERSION"
+          (
+            cd "${bundle}"
+            find . -type f ! -name checksums.txt -print0 \
+              | sort -z \
+              | xargs -0 sha256sum > ../payload-checksums.tmp
+            mv ../payload-checksums.tmp checksums.txt
+            sha256sum --check checksums.txt
+          )
+
+      - name: Assert bundle contains no secrets
+        env:
+          ARCHIVE_BASE: ${{ steps.meta.outputs.archive_base }}
+        run: |
+          set -euo pipefail
+          bundle="dist/${ARCHIVE_BASE}"
+          test ! -e "${bundle}/.env"
+          test ! -e "${bundle}/config/nginx/.htpasswd"
+          if grep -RIE \
+            --exclude='.htpasswd.example' \
+            '(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|([A-Z0-9_]*(PASSWORD|TOKEN|SECRET|API_KEY)[A-Z0-9_]*)[[:space:]]*=[[:space:]]*[^[:space:]#]+)' \
+            "${bundle}"; then
+            echo '::error::Potential secret found in release bundle'
+            exit 1
+          fi
+
+      - name: Create archives and checksums
+        env:
+          ARCHIVE_BASE: ${{ steps.meta.outputs.archive_base }}
+        run: |
+          set -euo pipefail
+          tar -C dist -czf "dist/${ARCHIVE_BASE}.tar.gz" "${ARCHIVE_BASE}"
+          (
+            cd dist
+            zip -qr "${ARCHIVE_BASE}.zip" "${ARCHIVE_BASE}"
+            sha256sum "${ARCHIVE_BASE}.tar.gz" "${ARCHIVE_BASE}.zip" > checksums.txt
+            sha256sum --check checksums.txt
+          )
+
+      - name: Verify archive contents and version
+        env:
+          ARCHIVE_BASE: ${{ steps.meta.outputs.archive_base }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          rm -rf verify-tar verify-zip
+          mkdir verify-tar verify-zip
+          tar -xzf "dist/${ARCHIVE_BASE}.tar.gz" -C verify-tar
+          unzip -q "dist/${ARCHIVE_BASE}.zip" -d verify-zip
+          for root in verify-tar verify-zip; do
+            bundle="${root}/${ARCHIVE_BASE}"
+            test "$(cat "${bundle}/VERSION")" = "${VERSION}"
+            test -f "${bundle}/compose.release.yaml"
+            test -f "${bundle}/compose.override.gpu.yaml"
+            test -f "${bundle}/compose.override.intel.yaml"
+            test -f "${bundle}/compose.override.wsl.yaml"
+            test -f "${bundle}/install.sh"
+            test -f "${bundle}/.env.template"
+            test -f "${bundle}/RELEASE_NOTES.md"
+            test -f "${bundle}/checksums.txt"
+            test -d "${bundle}/config/nginx"
+            test -d "${bundle}/simulation/models"
+            test -d "${bundle}/simulation/worlds"
+            (cd "${bundle}" && sha256sum --check checksums.txt)
+          done
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHIVE_BASE: ${{ steps.meta.outputs.archive_base }}
+          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          prerelease_flag=''
+          [ "${PRERELEASE}" = false ] || prerelease_flag='--prerelease'
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release edit "${GITHUB_REF_NAME}" \
+              --notes-file RELEASE_NOTES.md \
+              ${prerelease_flag}
+          else
+            gh release create "${GITHUB_REF_NAME}" \
+              --title "UbeROS ${GITHUB_REF_NAME}" \
+              --notes-file RELEASE_NOTES.md \
+              ${prerelease_flag}
+          fi
+          gh release upload "${GITHUB_REF_NAME}" --clobber \
+            "dist/${ARCHIVE_BASE}.tar.gz" \
+            "dist/${ARCHIVE_BASE}.zip" \
+            dist/checksums.txt
