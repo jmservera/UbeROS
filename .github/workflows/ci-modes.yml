@@ -1,0 +1,58 @@
+name: CI — Installer Modes & Overlays
+# PRD 004 release-compatibility gate (NFR-REL-1, NFR-COMPAT-1).
+# Exercises the local and source-free release installer contracts under both
+# supported POSIX shells, then validates every GPU overlay against both the
+# source Compose definition and the generated pinned-image release definition.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [dev, main, insider]
+
+permissions:
+  contents: read
+
+jobs:
+  installer-modes:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [sh, bash]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Exercise local and release installer modes (${{ matrix.shell }})
+        run: ${{ matrix.shell }} scripts/validate-wave3.sh
+
+  compose-modes:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [local, release]
+        overlay: [none, gpu, intel, wsl]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate pinned release Compose
+        if: matrix.mode == 'release'
+        run: sh scripts/gen-compose-release.sh 0.0.0-ci
+
+      - name: Validate ${{ matrix.mode }} mode with ${{ matrix.overlay }} overlay
+        env:
+          UBEROS_WORKSPACE: /tmp/uberos-workspace
+          UBEROS_RENDER_GID: '109'
+          UBEROS_VIDEO_GID: '44'
+        run: |
+          set -euo pipefail
+          case "${{ matrix.mode }}" in
+            local) compose_file='compose.yaml' ;;
+            release) compose_file='compose.release.yaml' ;;
+          esac
+          set -- -f "${compose_file}"
+          if [ "${{ matrix.overlay }}" != none ]; then
+            set -- "$@" -f "compose.override.${{ matrix.overlay }}.yaml"
+          fi
+          docker compose "$@" config --quiet
