@@ -15,20 +15,21 @@
 #   * external workspace provisioning, optional `--workspace-repo` seeding, and
 #     copy-then-verify migration of a repo-local `./workspace` (FR-F2..FR-F4)
 #
-# Release mode (pinned images, checksum verification, upgrade) lands in a later
-# installer stage (PR-13).
-#
 # POSIX sh only (no bashisms) so the installer runs on the widest range of hosts.
 set -eu
 
 # Installer version (FR-G4). The release pipeline stamps the real version into
-# the bundled copy; a source checkout reports `dev`.
+# the bundle's VERSION file; a source checkout reports `dev`.
 INSTALLER_VERSION="dev"
 
 # Resolve the repository/bundle root from this script's location so the
 # installer works regardless of the caller's working directory.
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
 ROOT_DIR="${SCRIPT_DIR}"
+
+if [ -f "${ROOT_DIR}/VERSION" ]; then
+  INSTALLER_VERSION="$(sed -n '1p' "${ROOT_DIR}/VERSION" | tr -d '\r')"
+fi
 
 ENV_TEMPLATE="${ROOT_DIR}/.env.template"
 ENV_FILE="${ROOT_DIR}/.env"
@@ -42,6 +43,7 @@ INTERACTIVE="auto"   # auto | never  (never == --non-interactive)
 CONFIG_FILE=""
 MIGRATE=""           # empty => ask; yes | no when forced from the CLI/config
 DRY_RUN=""           # non-empty => configure and provision, but never call Docker
+UPGRADE=""           # non-empty => refresh release images and recreate in place
 
 # Answers supplied on the command line or through --config. Empty means "not
 # supplied yet"; the wizard or the defaults fill them in.
@@ -93,6 +95,8 @@ Options:
   --dry-run                 Resolve and validate the configuration, write .env,
                             and provision the workspace, but do not build or
                             start anything.
+  --upgrade                 Refresh pinned release images and recreate services
+                            in place. Preserves the workspace and named volumes.
   --version                 Print the installer version and exit.
   -h, --help                Show this help and exit.
 
@@ -105,6 +109,9 @@ Answers fixed on the command line or in --config are never prompted for.
 
 Local mode builds every service image from source and starts the stack. Once it
 is up, open the UbeROS UI through the proxy (default http://localhost:8080).
+Release mode verifies the bundle, pulls its pinned images, and starts the same
+stack without a source checkout. Re-running it, with or without --upgrade, is
+safe and preserves workspace and named-volume data.
 EOF
 }
 
@@ -135,6 +142,27 @@ compose() {
   else
     die "docker compose is required but was not found on PATH"
   fi
+}
+
+# Verify every file recorded by the release pipeline before Docker can consume
+# the bundle. GNU coreutils and BSD/macOS expose different SHA-256 commands;
+# both accept the generated "hash  path" checksum format.
+verify_release_bundle() {
+  _checksums="${ROOT_DIR}/checksums.txt"
+  [ -f "${_checksums}" ] \
+    || die "release bundle is missing checksums.txt; download the complete bundle again"
+
+  log "Verifying release bundle checksums..."
+  if command -v sha256sum >/dev/null 2>&1; then
+    ( cd "${ROOT_DIR}" && sha256sum --check checksums.txt ) \
+      || die "checksum verification failed; the release bundle is incomplete or was modified"
+  elif command -v shasum >/dev/null 2>&1; then
+    ( cd "${ROOT_DIR}" && shasum -a 256 --check checksums.txt ) \
+      || die "checksum verification failed; the release bundle is incomplete or was modified"
+  else
+    die "checksum verification requires sha256sum or shasum on PATH"
+  fi
+  log "Release bundle checksums verified."
 }
 
 # True when the installer may prompt: not forced off and stdin is a terminal.
@@ -557,9 +585,34 @@ install_local() {
 }
 
 install_release() {
-  # Release mode (pinned images, checksum verification, upgrade) is implemented
-  # in a later installer stage (PR-13). Fail clearly until then.
-  die "release mode is not available in this installer build yet"
+  [ -f "${ROOT_DIR}/compose.release.yaml" ] \
+    || die "release mode requires compose.release.yaml at ${ROOT_DIR}"
+  verify_release_bundle
+  run_wizard
+  write_env
+  provision_workspace "${OPT_WORKSPACE}"
+
+  set -- -f "${ROOT_DIR}/compose.release.yaml"
+  if [ "${OPT_GPU}" != "none" ]; then
+    _overlay="compose.override.$(gpu_overlay_suffix "${OPT_GPU}").yaml"
+    set -- "$@" -f "${ROOT_DIR}/${_overlay}"
+    log "Applying GPU overlay: ${_overlay}"
+  fi
+
+  if [ -n "${DRY_RUN}" ]; then
+    log "Dry run: release bundle and configuration are ready; skipping pull and start."
+    return 0
+  fi
+
+  if [ -n "${UPGRADE}" ]; then
+    log "Refreshing UbeROS ${INSTALLER_VERSION} images in place..."
+  else
+    log "Pulling UbeROS ${INSTALLER_VERSION} images..."
+  fi
+  ( cd "${ROOT_DIR}" && compose "$@" pull )
+  log "Starting the UbeROS stack..."
+  ( cd "${ROOT_DIR}" && compose "$@" up -d )
+  log "UbeROS ${INSTALLER_VERSION} is starting. Open the UI at http://localhost:${OPT_PORT}"
 }
 
 # --- Argument parsing (POSIX) ------------------------------------------------
@@ -603,6 +656,8 @@ while [ "$#" -gt 0 ]; do
       MIGRATE="no"; shift ;;
     --dry-run)
       DRY_RUN="yes"; shift ;;
+    --upgrade)
+      UPGRADE="yes"; shift ;;
     --version)
       printf '%s\n' "${INSTALLER_VERSION}"; exit 0 ;;
     -h|--help)
