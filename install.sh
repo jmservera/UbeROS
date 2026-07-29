@@ -56,11 +56,14 @@ OPT_WORKSPACE=""
 OPT_PORT=""
 OPT_GPU=""
 OPT_WORKSPACE_REPO=""
+OPT_LEARNING_PACKAGES=""
 
 ENV_WORKSPACE="${UBEROS_WORKSPACE:-}"
+ENV_LEARNING_PACKAGES="${UBEROS_LEARNING_PACKAGES:-}"
 
 DEFAULT_PORT="8080"
 DEFAULT_GPU="none"
+DEFAULT_LEARNING_PACKAGES="turtlesim"
 
 log() { printf '%s\n' "$*"; }
 err() { printf 'error: %s\n' "$*" >&2; }
@@ -88,6 +91,8 @@ Options:
   --gpu <none|nvidia|intel|wsl>
                             GPU overlay to apply. Default: none
                             (`gpu` is accepted as an alias for `nvidia`)
+  --learning-packages <turtlesim|none>
+                            Optional learning packages. Default: turtlesim
   --migrate | --no-migrate  Copy (or skip copying) an existing ./workspace/src
                             into the external workspace without prompting. The
                             copy is skipped when the target workspace already
@@ -101,7 +106,8 @@ Options:
   -h, --help                Show this help and exit.
 
 Config file keys (all optional):
-  UBEROS_WORKSPACE, UBEROS_WORKSPACE_REPO, UBEROS_PORT, UBEROS_GPU, UBEROS_MIGRATE
+  UBEROS_WORKSPACE, UBEROS_WORKSPACE_REPO, UBEROS_PORT, UBEROS_GPU,
+  UBEROS_LEARNING_PACKAGES, UBEROS_MIGRATE
 
 Answer precedence (highest first):
   command line, --config file, environment (UBEROS_*), existing .env, defaults.
@@ -315,6 +321,16 @@ validate_gpu() {
   esac
 }
 
+validate_learning_packages() {
+  case "$1" in
+    turtlesim|none) return 0 ;;
+    *)
+      err "invalid learning packages '$1': expected turtlesim or none"
+      return 1
+      ;;
+  esac
+}
+
 # --- Config file (FR-E2) -----------------------------------------------------
 
 # Parse a KEY=VALUE answers file. Parsed line by line against an allowlist
@@ -339,6 +355,9 @@ load_config() {
       UBEROS_WORKSPACE_REPO) [ -n "${OPT_WORKSPACE_REPO}" ] || OPT_WORKSPACE_REPO="${_val}" ;;
       UBEROS_PORT)           [ -n "${OPT_PORT}" ]           || OPT_PORT="${_val}" ;;
       UBEROS_GPU)            [ -n "${OPT_GPU}" ]            || OPT_GPU="${_val}" ;;
+      UBEROS_LEARNING_PACKAGES)
+        [ -n "${OPT_LEARNING_PACKAGES}" ] || OPT_LEARNING_PACKAGES="${_val}"
+        ;;
       UBEROS_MIGRATE)        [ -n "${MIGRATE}" ]            || MIGRATE="${_val}" ;;
       *) die "unknown key '${_key}' in ${_file} line ${_lineno}" ;;
     esac
@@ -362,11 +381,14 @@ run_wizard() {
   [ -n "${_default_port}" ] || _default_port="${DEFAULT_PORT}"
   _default_gpu="$(env_value UBEROS_GPU)"
   [ -n "${_default_gpu}" ] || _default_gpu="${DEFAULT_GPU}"
+  _default_learning="${ENV_LEARNING_PACKAGES:-$(env_value UBEROS_LEARNING_PACKAGES)}"
+  [ -n "${_default_learning}" ] || _default_learning="${DEFAULT_LEARNING_PACKAGES}"
 
   if can_prompt; then
     # Skip the banner entirely when the command line or --config already
     # answered everything; there would be nothing left to ask.
-    if [ -z "${OPT_WORKSPACE}" ] || [ -z "${OPT_PORT}" ] || [ -z "${OPT_GPU}" ]; then
+    if [ -z "${OPT_WORKSPACE}" ] || [ -z "${OPT_PORT}" ] \
+      || [ -z "${OPT_GPU}" ] || [ -z "${OPT_LEARNING_PACKAGES}" ]; then
       log ""
       log "UbeROS setup - press Enter to accept the value in brackets."
       log ""
@@ -382,12 +404,18 @@ run_wizard() {
         OPT_GPU="$(ask "GPU overlay (none, nvidia, intel, wsl)" "${_default_gpu}")" || exit 1
         validate_gpu "${OPT_GPU}" || OPT_GPU=""
       done
+      while [ -z "${OPT_LEARNING_PACKAGES}" ]; do
+        OPT_LEARNING_PACKAGES="$(ask "Learning packages (turtlesim or none)" "${_default_learning}")" || exit 1
+        validate_learning_packages "${OPT_LEARNING_PACKAGES}" \
+          || OPT_LEARNING_PACKAGES=""
+      done
       log ""
     fi
   else
     OPT_WORKSPACE="${OPT_WORKSPACE:-${_default_ws}}"
     OPT_PORT="${OPT_PORT:-${_default_port}}"
     OPT_GPU="${OPT_GPU:-${_default_gpu}}"
+    OPT_LEARNING_PACKAGES="${OPT_LEARNING_PACKAGES:-${_default_learning}}"
   fi
 
   # The prompt loops above only exit on a valid answer, but values that came
@@ -396,9 +424,10 @@ run_wizard() {
   validate_workspace "${OPT_WORKSPACE}" || exit 1
   validate_port "${OPT_PORT}" || exit 1
   validate_gpu "${OPT_GPU}" || exit 1
+  validate_learning_packages "${OPT_LEARNING_PACKAGES}" || exit 1
 
   if ! can_prompt; then
-    log "Non-interactive setup: workspace=${OPT_WORKSPACE} port=${OPT_PORT} gpu=${OPT_GPU}"
+    log "Non-interactive setup: workspace=${OPT_WORKSPACE} port=${OPT_PORT} gpu=${OPT_GPU} learning=${OPT_LEARNING_PACKAGES}"
   fi
 }
 
@@ -420,6 +449,12 @@ write_env() {
   # Persisted so a re-run defaults to the overlay already in use instead of
   # silently dropping back to software rendering (FR-D6).
   set_env_value UBEROS_GPU "${OPT_GPU}"
+  set_env_value UBEROS_LEARNING_PACKAGES "${OPT_LEARNING_PACKAGES}"
+  if [ "${OPT_LEARNING_PACKAGES}" = "turtlesim" ]; then
+    set_env_value UBEROS_SIMULATORS "gazebo,turtlesim"
+  else
+    set_env_value UBEROS_SIMULATORS "gazebo"
+  fi
 }
 
 # --- Workspace provisioning (FR-F2, FR-F3, FR-F4) ----------------------------
@@ -559,6 +594,24 @@ provision_workspace() {
 
 # --- Install flows -----------------------------------------------------------
 
+# Compose knows the authoritative service catalog. Filter optional package
+# services from that structured output rather than duplicating the full list in
+# the installer, so adding a core service cannot silently omit it from installs.
+selected_compose_services() {
+  compose "$@" config --services | while IFS= read -r _service; do
+    if [ "${_service}" = "turtlesim" ] \
+      && [ "${OPT_LEARNING_PACKAGES}" = "none" ]; then
+      continue
+    fi
+    printf '%s\n' "${_service}"
+  done
+}
+
+remove_unselected_packages() {
+  [ "${OPT_LEARNING_PACKAGES}" = "none" ] || return 0
+  compose "$@" rm -s -f turtlesim
+}
+
 install_local() {
   [ -f "${ROOT_DIR}/compose.yaml" ] || die "local mode requires compose.yaml at ${ROOT_DIR}"
   run_wizard
@@ -577,10 +630,16 @@ install_local() {
     return 0
   fi
 
+  _services="$(selected_compose_services "$@")"
+  [ -n "${_services}" ] || die "compose returned no installable services"
+  ( cd "${ROOT_DIR}" && remove_unselected_packages "$@" )
   log "Building UbeROS images from source..."
-  ( cd "${ROOT_DIR}" && compose "$@" build )
+  # Intentional splitting: Compose emits one validated service id per line.
+  # shellcheck disable=SC2086
+  ( cd "${ROOT_DIR}" && compose "$@" build ${_services} )
   log "Starting the UbeROS stack..."
-  ( cd "${ROOT_DIR}" && compose "$@" up -d )
+  # shellcheck disable=SC2086
+  ( cd "${ROOT_DIR}" && compose "$@" up -d ${_services} )
   log "UbeROS is starting. Open the UI at http://localhost:${OPT_PORT}"
 }
 
@@ -609,9 +668,15 @@ install_release() {
   else
     log "Pulling UbeROS ${INSTALLER_VERSION} images..."
   fi
-  ( cd "${ROOT_DIR}" && compose "$@" pull )
+  _services="$(selected_compose_services "$@")"
+  [ -n "${_services}" ] || die "compose returned no installable services"
+  ( cd "${ROOT_DIR}" && remove_unselected_packages "$@" )
+  # Intentional splitting: Compose emits one validated service id per line.
+  # shellcheck disable=SC2086
+  ( cd "${ROOT_DIR}" && compose "$@" pull ${_services} )
   log "Starting the UbeROS stack..."
-  ( cd "${ROOT_DIR}" && compose "$@" up -d )
+  # shellcheck disable=SC2086
+  ( cd "${ROOT_DIR}" && compose "$@" up -d ${_services} )
   log "UbeROS ${INSTALLER_VERSION} is starting. Open the UI at http://localhost:${OPT_PORT}"
 }
 
@@ -643,6 +708,11 @@ while [ "$#" -gt 0 ]; do
       OPT_GPU="$2"; shift 2 ;;
     --gpu=*)
       OPT_GPU="${1#--gpu=}"; shift ;;
+    --learning-packages)
+      [ "$#" -ge 2 ] || die "--learning-packages requires turtlesim or none"
+      OPT_LEARNING_PACKAGES="$2"; shift 2 ;;
+    --learning-packages=*)
+      OPT_LEARNING_PACKAGES="${1#--learning-packages=}"; shift ;;
     --config)
       [ "$#" -ge 2 ] || die "--config requires a file path"
       CONFIG_FILE="$2"; INTERACTIVE="never"; shift 2 ;;
@@ -680,6 +750,9 @@ if [ -n "${OPT_PORT}" ]; then
 fi
 if [ -n "${OPT_GPU}" ]; then
   validate_gpu "${OPT_GPU}" || exit 1
+fi
+if [ -n "${OPT_LEARNING_PACKAGES}" ]; then
+  validate_learning_packages "${OPT_LEARNING_PACKAGES}" || exit 1
 fi
 
 if [ -z "${MODE}" ]; then

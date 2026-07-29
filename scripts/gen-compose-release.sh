@@ -140,8 +140,9 @@ VERSION="${1#v}"
 [ -f "${SRC_COMPOSE}" ] || die "${SRC_COMPOSE} not found"
 
 # --- Generation --------------------------------------------------------------
-# Replace every `build:` block under services with a pinned `image:` line. The
-# service name doubles as the image name (it matches the release.yml matrix).
+# Replace every `build:` block under services with a pinned `image:` line. Core
+# services use their Compose id as the image name; optional learning packages
+# use an independent package image so they can evolve and publish separately.
 awk -v ns="${IMAGE_NAMESPACE}" -v ver="${VERSION}" '
   BEGIN { in_services = 0; svc = ""; skipping = 0 }
 
@@ -171,7 +172,8 @@ awk -v ns="${IMAGE_NAMESPACE}" -v ver="${VERSION}" '
   }
 
   in_services == 1 && svc != "" && /^    build:[ \t]*$/ {
-    printf "    image: %s/%s:%s\n", ns, svc, ver
+    image = (svc == "turtlesim") ? "learning-turtlesim" : svc
+    printf "    image: %s/%s:%s\n", ns, image, ver
     skipping = 1
     next
   }

@@ -32,20 +32,28 @@ jobs:
       matrix:
         include:
           - service: ros
+            image: ros
             context: ./services/ros
           - service: gazebo
+            image: gazebo
             context: ./services/gazebo
           - service: turtlesim
+            image: learning-turtlesim
             context: ./services/turtlesim
           - service: editor
+            image: editor
             context: ./services/editor
           - service: frontend
+            image: frontend
             context: ./services/frontend
           - service: gzweb-client
+            image: gzweb-client
             context: ./services/gazebo/client
           - service: control
+            image: control
             context: ./services/control
           - service: proxy
+            image: proxy
             context: ./services/proxy
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +63,7 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          image="${IMAGE_NAMESPACE}/${{ matrix.service }}"
+          image="${IMAGE_NAMESPACE}/${{ matrix.image }}"
           tags="${image}:${version}"
           # A hyphen marks a semver pre-release (e.g. 0.4.0-beta); publish the
           # moving :beta tag alongside the pinned version (docs/VERSIONING.md).
