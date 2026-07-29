@@ -92,3 +92,32 @@ jobs:
           build-args: |
             UBEROS_VERSION=${{ steps.meta.outputs.version }}
             NPM_REGISTRY=https://registry.npmjs.org/
+
+  # Generate the pinned release compose once every image exists, and fail the
+  # release if any reference is unpinned or floating (FR-B4, FR-B9). Bundle
+  # assembly consumes this artifact in a later pipeline stage (PR-12).
+  compose-release:
+    needs: publish-images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate compose.release.yaml
+        env:
+          # Keep the generator on the same registry the images were pushed to;
+          # without this the script would fall back to its own literal default.
+          UBEROS_IMAGE_NAMESPACE: ${{ env.IMAGE_NAMESPACE }}
+        run: sh scripts/gen-compose-release.sh "${GITHUB_REF_NAME}"
+
+      - name: Validate generated compose
+        run: docker compose -f compose.release.yaml config >/dev/null
+
+      - name: Enforce pinned image references
+        run: sh scripts/gen-compose-release.sh --check compose.release.yaml
+
+      - name: Upload compose.release.yaml
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-release
+          path: compose.release.yaml
+          if-no-files-found: error

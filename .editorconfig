@@ -1,0 +1,6 @@
+# Keeps editors from writing CRLF back into files that .gitattributes checks
+# out as LF. See .gitattributes for why LF is the default everywhere.
+root = true
+
+[*]
+end_of_line = lf

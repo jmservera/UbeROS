@@ -14,5 +14,12 @@ LABEL org.opencontainers.image.version="${UBEROS_VERSION}" \
 COPY docker-entrypoint.d/40-uberos-auth.sh /docker-entrypoint.d/40-uberos-auth.sh
 RUN chmod +x /docker-entrypoint.d/40-uberos-auth.sh
 
+# The routing table is BAKED IN rather than bind-mounted from the source tree.
+# A release bundle ships no checkout (FR-C1), so a `./services/proxy/nginx.conf`
+# mount would resolve to a missing path and Docker would create it as an empty
+# DIRECTORY -- nginx then starts with no routes and the single ingress is dead.
+# Editing this file locally therefore needs `docker compose build proxy`.
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 # Default: auth disabled (localhost Init). Override with UBEROS_AUTH=basic.
 ENV UBEROS_AUTH=off

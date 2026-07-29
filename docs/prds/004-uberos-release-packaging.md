@@ -217,7 +217,7 @@ stays clean during normal use.
 ### 7.3 Theme C — Release bundle
 | FR ID | Requirement | Goals | Priority | Acceptance | BR |
 |-------|-------------|-------|----------|-----------|----|
-| FR-C1 | The bundle is self-contained: `compose.release.yaml`, GPU overlays, `install.sh`, `.env.template`, `checksums.txt`, `RELEASE_NOTES.md`, `VERSION`. | G-001 | Must | Extracting the bundle yields all items; no repo checkout is needed. | BR-004 |
+| FR-C1 | The bundle is self-contained: `compose.release.yaml`, GPU overlays, `install.sh`, `.env.template`, `checksums.txt`, `RELEASE_NOTES.md`, `VERSION`, plus every path `compose.release.yaml` bind-mounts (`simulation/`, `config/nginx/`). | G-001 | Must | Extracting the bundle yields all items; no repo checkout is needed; `gen-compose-release.sh` fails on any bind mount outside this manifest. | BR-004 |
 | FR-C2 | The bundle carries no secrets. | G-002 | Must | Inspection shows only committed-default configuration, no credentials. | BR-004 |
 | FR-C3 | A `VERSION` file records the exact release version. | G-007 | Should | `VERSION` equals the Git-tag version. | BR-012 |
 
@@ -315,6 +315,8 @@ stays clean during normal use.
 | `checksums.txt` | SHA-256 of bundle artifacts |
 | `RELEASE_NOTES.md` | Changelog for the version |
 | `VERSION` | Exact release version |
+| `simulation/` | Default Gazebo worlds and models, bind-mounted read-only by the `gazebo` service |
+| `config/nginx/` | Optional basic-auth directory (`.htpasswd`), bind-mounted read-only by the `proxy` service |
 
 ### Control-plane API addition
 | Method | Path | Purpose |
@@ -328,7 +330,7 @@ stays clean during normal use.
 | `--workspace <path>` | External workspace location |
 | `--workspace-repo <url>` | Use an existing Git repo as the workspace |
 | `--port <n>` | Host proxy port (`UBEROS_PORT`) |
-| `--gpu wsl\|intel\|nvidia` | Add a GPU overlay |
+| `--gpu none\|wsl\|intel\|nvidia` | Add a GPU overlay (`gpu` accepted as an alias for `nvidia`) |
 | `--packages <list>` | Optional package sets (simulators/extensions/learning) |
 | `--config <file>` | Non-interactive config file |
 | `--non-interactive` | No prompts; use flags/config/defaults |

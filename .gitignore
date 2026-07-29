@@ -28,5 +28,9 @@ workspace/log/
 .env
 build*.log
 
+# UbeROS: generated release compose (produced by scripts/gen-compose-release.sh
+# and shipped only inside a release bundle, never committed to the source tree)
+compose.release.yaml
+
 .playwright-mcp/
 test-results/.last-run.json

@@ -1,12 +1,41 @@
-# Force LF for shell scripts and container entrypoints. CRLF endings break the
-# shebang inside Linux images (`env: bash\r: No such file or directory`).
-*.sh text eol=lf
-*.xml text eol=lf
-*.conf text eol=lf
-*.lock text eol=lf
-services/**/docker-entrypoint.d/* text eol=lf
-# ROS/DDS config consumed inside Linux containers; keep LF.
-services/ros/config/*.xml text eol=lf
+# Line endings: LF everywhere, including the Windows working tree.
+#
+# Practically every text file in this repo ends up inside a Linux container --
+# entrypoints and scripts (CRLF breaks the shebang: `env: bash\r: No such file
+# or directory`), nginx/tmux/DDS configs, Gazebo world and launch files, and the
+# whole frontend/gzweb source trees, which are pulled in wholesale by `COPY . .`.
+# Enumerating the safe extensions meant every new file type was one oversight
+# away from shipping CRLF into an image, so LF is simply the default.
+#
+# `text=auto` lets Git detect and skip binaries; `eol=lf` checks out LF on every
+# platform. This is committed rather than left to core.autocrlf so a fresh clone
+# behaves identically for everyone. Modern Windows tooling (VS Code, PowerShell,
+# Notepad) handles LF natively; .editorconfig and .vscode/settings.json keep
+# editors from writing CRLF back.
+* text=auto eol=lf
+
+# Binaries: never touch the bytes, even if content detection guesses wrong.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.mp4 binary
+*.webm binary
+*.zip binary
+*.gz binary
+*.tar binary
+# Robot meshes land under simulation/models/; binary mesh formats must survive
+# checkout byte-for-byte (Collada .dae is XML and stays LF-normalized text).
+*.stl binary
+*.bin binary
 
 # Squad: union merge for append-only team state files
 .squad/decisions.md merge=union

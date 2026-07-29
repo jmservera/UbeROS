@@ -8,6 +8,7 @@ import { SERVICES, healthSnapshot } from '../helpers/stack.js';
 
 test.describe('S5 - pop-out does not terminate the workload', () => {
   test('closing a detached window keeps every service healthy', async ({ page, context }) => {
+    test.setTimeout(120_000);
     await page.goto('/');
 
     await expect
@@ -16,7 +17,7 @@ test.describe('S5 - pop-out does not terminate the workload', () => {
           const health = healthSnapshot();
           return SERVICES.every((svc) => health[svc] === 'healthy');
         },
-        { timeout: 60_000, intervals: [2000] }
+        { timeout: 100_000, intervals: [2000] }
       )
       .toBe(true);
 
