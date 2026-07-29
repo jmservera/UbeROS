@@ -1,6 +1,6 @@
 #!/bin/sh
-# Wave 3 validation harness (PR-7 installer wizard, PR-8 workspace provisioning,
-# PR-11 release-compose generator).
+# Wave 3 and PR-13 validation harness (installer wizard, workspace provisioning,
+# release-compose generator, and release-mode installation).
 #
 # Covers the Wave 3 success criteria:
 #   * accepting defaults completes setup, a config file installs silently, and
@@ -279,6 +279,62 @@ sh "${INSTALL}" -y --gpu gpu --no-migrate --dry-run >/dev/null \
   || fail "legacy --gpu gpu alias was rejected"
 pass "legacy --gpu gpu alias still accepted"
 
+# --- Release-mode installer (PR-13) -----------------------------------------
+printf '\n== release-mode installer (FR-D1, FR-D4, FR-D5, FR-D6) ==\n'
+RELEASE_ROOT="${SANDBOX}/release"
+RELEASE_WS="${SANDBOX}/release-ws"
+FAKE_BIN="${SANDBOX}/fake-bin"
+DOCKER_LOG="${SANDBOX}/docker.log"
+mkdir -p "${RELEASE_ROOT}" "${FAKE_BIN}"
+cp install.sh .env.template compose.override.gpu.yaml \
+  compose.override.intel.yaml compose.override.wsl.yaml "${RELEASE_ROOT}/"
+printf 'services: {}\n' > "${RELEASE_ROOT}/compose.release.yaml"
+printf '0.4.0-beta\n' > "${RELEASE_ROOT}/VERSION"
+(
+  cd "${RELEASE_ROOT}"
+  find . -type f ! -name checksums.txt -print0 \
+    | sort -z \
+    | xargs -0 sha256sum > checksums.txt
+)
+cat > "${FAKE_BIN}/docker" <<EOF
+#!/bin/sh
+printf '%s\n' "\$*" >> "${DOCKER_LOG}"
+case "\$*" in
+  'compose version') exit 0 ;;
+esac
+exit 0
+EOF
+chmod +x "${FAKE_BIN}/docker"
+
+[ "$(sh "${RELEASE_ROOT}/install.sh" --version)" = '0.4.0-beta' ] \
+  || fail "release installer did not report the bundled VERSION"
+pass "release installer reports the bundled version"
+
+PATH="${FAKE_BIN}:${PATH}" sh "${RELEASE_ROOT}/install.sh" -y \
+  --workspace "${RELEASE_WS}" --gpu nvidia --no-migrate >/dev/null \
+  || fail "source-free release install"
+grep -q "compose -f ${RELEASE_ROOT}/compose.release.yaml -f ${RELEASE_ROOT}/compose.override.gpu.yaml pull" \
+  "${DOCKER_LOG}" || fail "release mode did not pull with the NVIDIA overlay"
+grep -q "compose -f ${RELEASE_ROOT}/compose.release.yaml -f ${RELEASE_ROOT}/compose.override.gpu.yaml up -d" \
+  "${DOCKER_LOG}" || fail "release mode did not start with the NVIDIA overlay"
+pass "source-free release mode pulls and starts pinned images with its GPU overlay"
+
+: > "${DOCKER_LOG}"
+PATH="${FAKE_BIN}:${PATH}" sh "${RELEASE_ROOT}/install.sh" -y \
+  --workspace "${RELEASE_WS}" --upgrade --no-migrate >/dev/null \
+  || fail "release upgrade"
+grep -q 'compose .* pull' "${DOCKER_LOG}" || fail "upgrade did not refresh images"
+grep -q 'compose .* up -d' "${DOCKER_LOG}" || fail "upgrade did not recreate the stack"
+grep -q 'down' "${DOCKER_LOG}" && fail "upgrade stopped the stack or removed volumes"
+pass "--upgrade refreshes in place without removing volumes or workspace data"
+
+printf '\n# tampered\n' >> "${RELEASE_ROOT}/compose.release.yaml"
+: > "${DOCKER_LOG}"
+expect_failure 'checksum verification failed' env PATH="${FAKE_BIN}:${PATH}" \
+  sh "${RELEASE_ROOT}/install.sh" -y --workspace "${RELEASE_WS}" --no-migrate
+[ ! -s "${DOCKER_LOG}" ] || fail "tampered bundle reached Docker before rejection"
+pass "tampered release bundle is rejected before Docker runs"
+
 # --- Release compose generator (PR-11) ---------------------------------------
 printf '\n== release compose generation (FR-B4) ==\n'
 sh scripts/gen-compose-release.sh v0.0.0-validation >/dev/null || fail "generator"
@@ -341,4 +397,4 @@ sh scripts/gen-compose-release.sh --check "$tmp" >/dev/null \
   || fail "guard rejected a mount nested under a bundled path"
 pass "guard accepts a mount nested under a bundled path"
 
-printf '\nWave 3 validation: all checks passed.\n'
+printf '\nWave 3 + PR-13 validation: all checks passed.\n'
