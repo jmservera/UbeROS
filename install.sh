@@ -83,8 +83,9 @@ Options:
   --workspace-repo <git>    Clone this repository into <workspace>/src when the
                             workspace is empty.
   --port <1-65535>          Host port published by the proxy. Default: 8080
-  --gpu <none|gpu|intel|wsl>
+  --gpu <none|nvidia|intel|wsl>
                             GPU overlay to apply. Default: none
+                            (`gpu` is accepted as an alias for `nvidia`)
   --migrate | --no-migrate  Copy (or skip copying) an existing ./workspace/src
                             into the external workspace without prompting. The
                             copy is skipped when the target workspace already
@@ -147,14 +148,21 @@ ask() {
   _prompt="$1"
   _default="$2"
   printf '%s [%s]: ' "${_prompt}" "${_default}" >&2
-  IFS= read -r _answer || _answer=""
+  # A closed stdin must abort: the wizard re-asks until an answer validates, so
+  # treating EOF as "take the default" spins forever whenever that default is
+  # itself invalid (an unset HOME leaves the workspace default empty).
+  if ! IFS= read -r _answer; then
+    printf '\n' >&2
+    die "input stream closed while waiting for an answer; re-run with --non-interactive or --config <file>"
+  fi
   [ -n "${_answer}" ] || _answer="${_default}"
   printf '%s' "${_answer}"
 }
 
 # Yes/no prompt. $2 is the default when the user just presses Enter.
 confirm() {
-  _reply="$(ask "$1 (y/n)" "$2")"
+  # `ask` runs in a subshell, so its abort surfaces here as a non-zero status.
+  _reply="$(ask "$1 (y/n)" "$2")" || exit 1
   case "${_reply}" in
     y|Y|yes|YES) return 0 ;;
     *) return 1 ;;
@@ -184,7 +192,7 @@ set_env_value() {
   ' "${ENV_FILE}" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "${ENV_FILE}"
 }
 
-# --- Validation (FR-E3) ------------------------------------------------------
+# --- Validation (FR-E4) ------------------------------------------------------
 
 validate_port() {
   case "$1" in
@@ -252,18 +260,28 @@ validate_workspace() {
   return 0
 }
 
+# The PRD's CLI contract names the NVIDIA overlay `nvidia` (§9) while the
+# overlay file it selects is compose.override.gpu.yaml, so map answer -> file.
+gpu_overlay_suffix() {
+  case "$1" in
+    nvidia|gpu) printf 'gpu' ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
 validate_gpu() {
   case "$1" in
     none) return 0 ;;
-    gpu|intel|wsl)
-      if [ ! -f "${ROOT_DIR}/compose.override.$1.yaml" ]; then
-        err "GPU overlay '$1' selected but ${ROOT_DIR}/compose.override.$1.yaml is missing"
+    nvidia|gpu|intel|wsl)
+      _overlay="${ROOT_DIR}/compose.override.$(gpu_overlay_suffix "$1").yaml"
+      if [ ! -f "${_overlay}" ]; then
+        err "GPU overlay '$1' selected but ${_overlay} is missing"
         return 1
       fi
       return 0
       ;;
     *)
-      err "invalid GPU overlay '$1': expected none, gpu, intel, or wsl"
+      err "invalid GPU overlay '$1': expected none, nvidia, intel, or wsl"
       return 1
       ;;
   esac
@@ -314,7 +332,8 @@ run_wizard() {
   [ -n "${_default_ws}" ] || _default_ws="${HOME:+${HOME}/uberos-workspace}"
   _default_port="$(env_value UBEROS_PORT)"
   [ -n "${_default_port}" ] || _default_port="${DEFAULT_PORT}"
-  _default_gpu="${DEFAULT_GPU}"
+  _default_gpu="$(env_value UBEROS_GPU)"
+  [ -n "${_default_gpu}" ] || _default_gpu="${DEFAULT_GPU}"
 
   if can_prompt; then
     # Skip the banner entirely when the command line or --config already
@@ -324,15 +343,15 @@ run_wizard() {
       log "UbeROS setup - press Enter to accept the value in brackets."
       log ""
       while [ -z "${OPT_WORKSPACE}" ]; do
-        OPT_WORKSPACE="$(ask "ROS workspace directory (outside this checkout)" "${_default_ws}")"
+        OPT_WORKSPACE="$(ask "ROS workspace directory (outside this checkout)" "${_default_ws}")" || exit 1
         validate_workspace "${OPT_WORKSPACE}" || OPT_WORKSPACE=""
       done
       while [ -z "${OPT_PORT}" ]; do
-        OPT_PORT="$(ask "Host port for the UbeROS UI" "${_default_port}")"
+        OPT_PORT="$(ask "Host port for the UbeROS UI" "${_default_port}")" || exit 1
         validate_port "${OPT_PORT}" || OPT_PORT=""
       done
       while [ -z "${OPT_GPU}" ]; do
-        OPT_GPU="$(ask "GPU overlay (none, gpu, intel, wsl)" "${_default_gpu}")"
+        OPT_GPU="$(ask "GPU overlay (none, nvidia, intel, wsl)" "${_default_gpu}")" || exit 1
         validate_gpu "${OPT_GPU}" || OPT_GPU=""
       done
       log ""
@@ -370,6 +389,9 @@ write_env() {
   fi
   set_env_value UBEROS_WORKSPACE "${OPT_WORKSPACE}"
   set_env_value UBEROS_PORT "${OPT_PORT}"
+  # Persisted so a re-run defaults to the overlay already in use instead of
+  # silently dropping back to software rendering (FR-D6).
+  set_env_value UBEROS_GPU "${OPT_GPU}"
 }
 
 # --- Workspace provisioning (FR-F2, FR-F3, FR-F4) ----------------------------
@@ -517,8 +539,9 @@ install_local() {
 
   set -- -f "${ROOT_DIR}/compose.yaml"
   if [ "${OPT_GPU}" != "none" ]; then
-    set -- "$@" -f "${ROOT_DIR}/compose.override.${OPT_GPU}.yaml"
-    log "Applying GPU overlay: compose.override.${OPT_GPU}.yaml"
+    _overlay="compose.override.$(gpu_overlay_suffix "${OPT_GPU}").yaml"
+    set -- "$@" -f "${ROOT_DIR}/${_overlay}"
+    log "Applying GPU overlay: ${_overlay}"
   fi
 
   if [ -n "${DRY_RUN}" ]; then
@@ -563,7 +586,7 @@ while [ "$#" -gt 0 ]; do
     --port=*)
       OPT_PORT="${1#--port=}"; shift ;;
     --gpu)
-      [ "$#" -ge 2 ] || die "--gpu requires an argument (none|gpu|intel|wsl)"
+      [ "$#" -ge 2 ] || die "--gpu requires an argument (none|nvidia|intel|wsl)"
       OPT_GPU="$2"; shift 2 ;;
     --gpu=*)
       OPT_GPU="${1#--gpu=}"; shift ;;

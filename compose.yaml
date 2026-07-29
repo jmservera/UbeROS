@@ -288,7 +288,10 @@ services:
     ports:
       - "${UBEROS_PORT:-8080}:8080"
     volumes:
-      - ./services/proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # nginx.conf is baked into the image (see services/proxy/Dockerfile) so a
+      # release bundle needs no source tree to boot the ingress.
+      # config/nginx only holds the optional .htpasswd, so it stays a mount the
+      # user can populate; it ships with the bundle (FR-C1).
       - ./config/nginx:/etc/nginx/auth:ro
     networks:
       - web_net

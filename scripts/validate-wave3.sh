@@ -8,8 +8,9 @@
 #   * a fresh install creates an external workspace and migration preserves
 #     content without deleting the source
 #   * the generated compose.release.yaml has no build contexts, pins every
-#     service image, validates with docker compose, and the unpinned-tag guard
-#     rejects moving tags
+#     service image, validates with docker compose, mounts nothing that the
+#     release bundle does not ship, and the unpinned-tag guard rejects moving
+#     tags
 #
 # Installer flows run inside a disposable sandbox (a copy of install.sh plus a
 # stub compose.yaml) so the harness never touches the developer's .env or
@@ -24,7 +25,22 @@ REPO="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)"
 cd "${REPO}"
 
 SANDBOX=""
-cleanup() { [ -n "${SANDBOX}" ] && rm -rf "${SANDBOX}"; }
+# The generator writes compose.release.yaml into the repo root. Remember whether
+# the developer already had one so a validation run never leaves a stray
+# artifact (or clobbers theirs) behind.
+RELEASE_COMPOSE="${REPO}/compose.release.yaml"
+RELEASE_COMPOSE_BACKUP=""
+[ -f "${RELEASE_COMPOSE}" ] && RELEASE_COMPOSE_BACKUP="${RELEASE_COMPOSE}.validate-bak"
+[ -n "${RELEASE_COMPOSE_BACKUP}" ] && cp "${RELEASE_COMPOSE}" "${RELEASE_COMPOSE_BACKUP}"
+
+cleanup() {
+  [ -n "${SANDBOX}" ] && rm -rf "${SANDBOX}"
+  if [ -n "${RELEASE_COMPOSE_BACKUP}" ]; then
+    mv "${RELEASE_COMPOSE_BACKUP}" "${RELEASE_COMPOSE}"
+  else
+    rm -f "${RELEASE_COMPOSE}"
+  fi
+}
 trap cleanup EXIT INT TERM
 
 pass() { printf 'PASS  %s\n' "$*"; }
@@ -53,6 +69,8 @@ SANDBOX="$(mktemp -d "${TMPDIR:-/tmp}/uberos-wave3.XXXXXX")"
 INSTALL_ROOT="${SANDBOX}/checkout"
 mkdir -p "${INSTALL_ROOT}/services" "${INSTALL_ROOT}/workspace/src/demo_pkg"
 cp install.sh .env.template "${INSTALL_ROOT}/"
+cp compose.override.gpu.yaml compose.override.intel.yaml compose.override.wsl.yaml \
+  "${INSTALL_ROOT}/"
 printf 'services: {}\n' > "${INSTALL_ROOT}/compose.yaml"
 printf '# demo\n' > "${INSTALL_ROOT}/workspace/src/demo_pkg/package.xml"
 INSTALL="${INSTALL_ROOT}/install.sh"
@@ -65,12 +83,12 @@ pass "--help"
 expect_failure 'unknown option' sh "${INSTALL}" --bogus
 pass "unknown option rejected"
 
-printf '\n== input validation (FR-E3) ==\n'
+printf '\n== input validation (FR-E4) ==\n'
 expect_failure 'invalid port' sh "${INSTALL}" -y --port 70000 --dry-run
 pass "out-of-range port rejected"
 expect_failure 'invalid port' sh "${INSTALL}" -y --port abc --dry-run
 pass "non-numeric port rejected"
-expect_failure 'invalid GPU overlay' sh "${INSTALL}" -y --gpu nvidia --dry-run
+expect_failure 'invalid GPU overlay' sh "${INSTALL}" -y --gpu amd --dry-run
 pass "unknown GPU overlay rejected"
 expect_failure 'must be an absolute path' \
   sh "${INSTALL}" -y --workspace relative/path --dry-run
@@ -245,6 +263,22 @@ grep -q "^UBEROS_WORKSPACE=${SANDBOX}/from-cli$" "${INSTALL_ROOT}/.env" \
   || fail "--workspace did not win over --config"
 pass "--workspace overrides --config"
 
+printf '\n== GPU overlay contract (FR-D5) and persistence (FR-D6) ==\n'
+rm -f "${INSTALL_ROOT}/.env"
+sh "${INSTALL}" -y --workspace "${SANDBOX}/gpu-ws" --gpu nvidia --no-migrate --dry-run >/dev/null \
+  || fail "PRD CLI name --gpu nvidia was rejected"
+grep -q '^UBEROS_GPU=nvidia$' "${INSTALL_ROOT}/.env" || fail "UBEROS_GPU not persisted"
+pass "--gpu nvidia accepted and recorded in .env"
+
+sh "${INSTALL}" -y --no-migrate --dry-run >/dev/null || fail "re-run after --gpu nvidia"
+grep -q '^UBEROS_GPU=nvidia$' "${INSTALL_ROOT}/.env" \
+  || fail "re-run silently dropped the GPU overlay back to none"
+pass "re-running the installer keeps the configured GPU overlay"
+
+sh "${INSTALL}" -y --gpu gpu --no-migrate --dry-run >/dev/null \
+  || fail "legacy --gpu gpu alias was rejected"
+pass "legacy --gpu gpu alias still accepted"
+
 # --- Release compose generator (PR-11) ---------------------------------------
 printf '\n== release compose generation (FR-B4) ==\n'
 sh scripts/gen-compose-release.sh v0.0.0-validation >/dev/null || fail "generator"
@@ -286,5 +320,25 @@ pass "guard accepts an immutable :0.4.0-beta version tag"
 sh scripts/gen-compose-release.sh --check compose.release.yaml >/dev/null \
   || fail "guard rejected a fully pinned file"
 pass "guard accepts the generated file"
+
+printf '\n== bundle self-containment guard (FR-C1) ==\n'
+# A release bundle ships no source tree, so a bind mount pointing at a path that
+# is not in the bundle would be created by Docker as an empty directory and the
+# service would start misconfigured. `docker compose config` cannot catch this.
+grep -q '^      - \./services/' compose.release.yaml \
+  && fail "compose.release.yaml still mounts a path from the source tree"
+pass "no source-tree bind mounts in compose.release.yaml"
+
+sed 's|^\(      - \)\./simulation:.*|\1./services/proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro|' \
+  compose.release.yaml > "$tmp"
+expect_failure 'unbundled host-relative bind mount' sh scripts/gen-compose-release.sh --check "$tmp"
+pass "guard rejects a bind mount that the bundle does not ship"
+
+# Paths under a bundled directory stay legal: the bundle reproduces the layout.
+sed 's|^\(      - \)\./simulation:.*|\1./simulation/worlds:/simulation/worlds:ro|' \
+  compose.release.yaml > "$tmp"
+sh scripts/gen-compose-release.sh --check "$tmp" >/dev/null \
+  || fail "guard rejected a mount nested under a bundled path"
+pass "guard accepts a mount nested under a bundled path"
 
 printf '\nWave 3 validation: all checks passed.\n'

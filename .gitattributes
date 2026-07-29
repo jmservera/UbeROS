@@ -24,6 +24,18 @@
 *.pdf binary
 *.woff binary
 *.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.mp4 binary
+*.webm binary
+*.zip binary
+*.gz binary
+*.tar binary
+# Robot meshes land under simulation/models/; binary mesh formats must survive
+# checkout byte-for-byte (Collada .dae is XML and stays LF-normalized text).
+*.stl binary
+*.bin binary
 
 # Squad: union merge for append-only team state files
 .squad/decisions.md merge=union

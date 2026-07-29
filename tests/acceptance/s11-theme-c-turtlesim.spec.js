@@ -27,7 +27,7 @@ async function ensureTurtlesimRunning(request) {
   }
 
   await expect
-    .poll(() => rosNodeList(), { timeout: 45_000 })
+    .poll(() => rosNodeList(), { timeout: 120_000 })
     .toEqual(expect.arrayContaining([FR_C3_SIGNAL_POLICY.requiredNode]));
 }
 

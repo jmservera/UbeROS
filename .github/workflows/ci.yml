@@ -34,11 +34,21 @@ jobs:
           ignore: DL3008,DL3013
 
       - name: Lint shell scripts (shellcheck)
+        # Covers the installer and the release/validation tooling at the repo
+        # root as well as the per-service scripts — install.sh and scripts/*.sh
+        # are ~1k lines of POSIX shell that ship to users, so they must not be
+        # exempt from static analysis. Dialect comes from each shebang (the
+        # service entrypoints are bash, install.sh and scripts/ are POSIX sh).
         run: |
           command -v shellcheck >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y shellcheck)
-          mapfile -t shell_scripts < <(find services tests -type f -name '*.sh' | sort)
+          mapfile -t shell_scripts < <(
+            {
+              find services tests scripts -type f -name '*.sh'
+              [ -f install.sh ] && printf '%s\n' install.sh
+            } | sort
+          )
           if [ "${#shell_scripts[@]}" -eq 0 ]; then
-            echo "::warning::No shell scripts found under services/ or tests/"
+            echo "::warning::No shell scripts found"
             exit 0
           fi
           shellcheck --severity=warning "${shell_scripts[@]}"
@@ -108,7 +118,29 @@ jobs:
           exit $fail
 
 
-  # ── Job 2: Build gate — validate compose config + build all images ─────
+  # ── Job 2: Installer & release-compose gate (PRD 004, NFR-REL-1) ───────
+  # Exercises both installer modes (guided defaults and non-interactive/config
+  # file), external workspace provisioning with its migration rollback, and the
+  # compose.release.yaml generator plus its pinning and bundle guards. The
+  # harness sandboxes every installer run and only needs `docker compose config`
+  # (preinstalled on the runner), so it stays a sub-minute job.
+  #
+  # The matrix runs the harness under both dash (`sh`) and bash: install.sh and
+  # scripts/*.sh are POSIX sh and must not grow bashisms (FR-E3, NFR-PORT-1).
+  installer:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [sh, bash]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate installer, provisioning and release compose
+        run: ${{ matrix.shell }} scripts/validate-wave3.sh
+
+
+  # ── Job 3: Build gate — validate compose config + build all images ─────
   # This is the lightweight "build" half of "lint + build for any PR". It does
   # NOT start the stack or run live tests — that is ci-integration.yml's job.
   build-and-test:

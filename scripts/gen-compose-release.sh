@@ -8,9 +8,13 @@
 # rest of the file (networks, volumes, healthchecks, env) untouched so the two
 # compose files never drift.
 #
-# It then runs the unpinned-tag guard (FR-B9): any `image:` reference without a
-# tag, or pinned to one of the moving tags the release workflow republishes
-# (`latest`, `beta`), fails the run.
+# It then runs two guards:
+#   * the unpinned-tag guard (FR-B9): any `image:` reference without a tag, or
+#     pinned to one of the moving tags the release workflow republishes
+#     (`latest`, `beta`), fails the run.
+#   * the relative-mount guard (FR-C1): any host-relative bind mount whose
+#     source is not shipped in the release bundle fails the run, because the
+#     bundle has no source checkout to resolve it against.
 #
 # Usage:
 #   sh scripts/gen-compose-release.sh <version>      # generate + guard
@@ -81,12 +85,51 @@ guard_unpinned() {
   log "Guard passed: all image references in ${file} are pinned."
 }
 
+# Paths the release bundle ships alongside compose.release.yaml (FR-C1). A
+# host-relative bind mount is only safe when its source is one of these, because
+# the extracted bundle then resolves it exactly like a source checkout does.
+# Keep this list in sync with the bundle manifest in
+# docs/prds/004-uberos-release-packaging.md.
+BUNDLED_PATHS='./simulation ./config/nginx'
+
+# A release bundle ships no source tree, so any host-relative bind mount that is
+# NOT part of the bundle resolves to a path that does not exist after
+# extraction. Docker then creates it as an empty directory and the service
+# starts misconfigured -- an empty default.conf "directory" takes the proxy, and
+# therefore the whole ingress, down. `docker compose config` never resolves
+# mount sources, so it cannot catch this. Every such mount must be baked into
+# its image, converted to a named volume, or added to the bundle manifest.
+guard_relative_mounts() {
+  file="$1"
+  [ -f "${file}" ] || die "guard: ${file} not found"
+  if ! awk -v bundled="${BUNDLED_PATHS}" '
+    BEGIN { n = split(bundled, list, " ") }
+    $1 == "-" && $2 ~ /^\.\// {
+      mount = $2
+      gsub(/"/, "", mount)
+      src = mount
+      sub(/:.*/, "", src)
+      for (i = 1; i <= n; i++) {
+        # Accept the bundled path itself and anything beneath it.
+        if (src == list[i] || index(src, list[i] "/") == 1) next
+      }
+      printf "  unbundled host-relative bind mount on line %d: %s\n", NR, mount > "/dev/stderr"
+      bad = 1
+    }
+    END { exit bad ? 1 : 0 }
+  ' "${file}"; then
+    die "unbundled host-relative bind mounts found in ${file}; a release bundle has no source tree to resolve them against (FR-C1) -- bake the path into the image, use a named volume, or add it to BUNDLED_PATHS and the bundle manifest"
+  fi
+  log "Guard passed: every host-relative bind mount in ${file} ships with the bundle."
+}
+
 # --- Argument handling -------------------------------------------------------
 case "${1:-}" in
   -h|--help) usage; exit 0 ;;
   --check)
     [ "$#" -ge 2 ] || die "--check requires a compose file path"
     guard_unpinned "$2"
+    guard_relative_mounts "$2"
     exit 0
     ;;
   '') usage >&2; exit 2 ;;
@@ -149,3 +192,4 @@ grep -q '^    build:' "${OUT_COMPOSE}" && die "build: sections remain in ${OUT_C
 
 log "Generated ${OUT_COMPOSE} for version ${VERSION} (namespace ${IMAGE_NAMESPACE})."
 guard_unpinned "${OUT_COMPOSE}"
+guard_relative_mounts "${OUT_COMPOSE}"

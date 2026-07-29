@@ -20,6 +20,27 @@ standard web browser with no local install beyond Docker.
 
 ## Quick start
 
+The installer generates `.env`, creates a ROS workspace outside the checkout, and
+starts the stack:
+
+```bash
+./install.sh
+```
+
+It asks for the workspace directory, the host port, and the GPU overlay, offering
+a default for each. For an unattended setup, pass the answers instead:
+
+```bash
+./install.sh --non-interactive --workspace ~/uberos-workspace --port 8080 --gpu none
+./install.sh --config answers.conf     # same keys, read from a KEY=VALUE file
+```
+
+Re-running it is safe: your `.env` is kept and only the answers you change are
+rewritten. `./install.sh --help` lists every flag.
+
+If you would rather wire up `.env` yourself, the stack is still a plain compose
+project:
+
 ```bash
 docker compose up
 ```
@@ -78,6 +99,8 @@ Settings live in `.env` (committed defaults contain no secrets):
 | `ROS_DISTRO` | `kilted` | ROS 2 distribution (switch to `jazzy` as fallback) |
 | `GZ_RELEASE` | `ionic` | Gazebo release (switch to `harmonic` with Jazzy) |
 | `UBEROS_PORT` | `8080` | Host port for the proxy |
+| `UBEROS_WORKSPACE` | `$HOME/uberos-workspace` | Host ROS workspace bind-mounted at `/ros_ws/src` |
+| `UBEROS_GPU` | `none` | GPU overlay `install.sh` applies (`none`, `nvidia`, `intel`, `wsl`) |
 | `ROS_DOMAIN_ID` | `42` | DDS domain (cross-platform-safe range) |
 | `UBEROS_AUTH` | `off` | Set to `basic` to enable proxy authentication |
 | `UBEROS_SERVICES` | `ros,gazebo,editor,frontend` | Services the system menu may reset |
