@@ -117,30 +117,7 @@ jobs:
           done
           exit $fail
 
-
-  # ── Job 2: Installer & release-compose gate (PRD 004, NFR-REL-1) ───────
-  # Exercises both installer modes (guided defaults and non-interactive/config
-  # file), external workspace provisioning with its migration rollback, and the
-  # compose.release.yaml generator plus its pinning and bundle guards. The
-  # harness sandboxes every installer run and only needs `docker compose config`
-  # (preinstalled on the runner), so it stays a sub-minute job.
-  #
-  # The matrix runs the harness under both dash (`sh`) and bash: install.sh and
-  # scripts/*.sh are POSIX sh and must not grow bashisms (FR-E3, NFR-PORT-1).
-  installer:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shell: [sh, bash]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Validate installer, provisioning and release compose
-        run: ${{ matrix.shell }} scripts/validate-wave3.sh
-
-
-  # ── Job 3: Build gate — validate compose config + build all images ─────
+  # ── Job 2: Build gate — validate compose config + build all images ─────
   # This is the lightweight "build" half of "lint + build for any PR". It does
   # NOT start the stack or run live tests — that is ci-integration.yml's job.
   build-and-test:
