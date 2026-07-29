@@ -39,6 +39,7 @@ const AUTH = (process.env.UBEROS_AUTH || 'off').toLowerCase();
 const VERSION = process.env.UBEROS_VERSION || 'dev';
 const STACK_INSTANCE = process.env.UBEROS_STACK_INSTANCE || '';
 const AUTOSTART_STAMP_FILE = process.env.UBEROS_AUTOSTART_STAMP_FILE || '/data/autostart.reconciled';
+const INTENTIONALLY_STOPPED_SIMULATORS = new Set();
 
 // Allowlist of compose services the menu may reset. Anything not in this set is
 // rejected outright — the control plane can never touch itself, the proxy, or
@@ -221,18 +222,20 @@ async function resolveSimulatorContainer(id) {
 // container is started and 304 when it was already running; both are success so
 // a double-launch is idempotent.
 async function startSimulator(id) {
-  const { container } = await resolveSimulatorContainer(id);
+  const { sim, container } = await resolveSimulatorContainer(id);
   const { status } = await dockerRequest('POST', `/containers/${container.Id}/start`);
   if (status !== 204 && status !== 304) throw new Error(`docker start failed (${status})`);
+  INTENTIONALLY_STOPPED_SIMULATORS.delete(sim.id);
 }
 
 // Stop an installed simulator's container (FR-B3). 204 = stopped, 304 = already
 // stopped; both succeed. `restart: unless-stopped` will NOT resurrect a
 // container stopped this way, so a menu Stop stays stopped until a Launch.
 async function stopSimulator(id) {
-  const { container } = await resolveSimulatorContainer(id);
+  const { sim, container } = await resolveSimulatorContainer(id);
   const { status } = await dockerRequest('POST', `/containers/${container.Id}/stop`);
   if (status !== 204 && status !== 304) throw new Error(`docker stop failed (${status})`);
+  INTENTIONALLY_STOPPED_SIMULATORS.add(sim.id);
 }
 
 async function safeContainerVerb(containerId, verb) {
@@ -371,7 +374,7 @@ async function serviceStatus() {
 // vocabulary the PRD defines (§7.1): available (installed but not launched),
 // starting, running, stopped, failed, unknown. Derived read-only from the same
 // container list serviceStatus() uses — no launch/stop here (that is Theme B).
-function simulatorState(container) {
+function simulatorState(container, intentionallyStopped = false) {
   if (!container) return 'available';
   const state = container.State ?? '';
   const status = container.Status ?? '';
@@ -382,6 +385,7 @@ function simulatorState(container) {
   }
   if (state === 'created' || state === 'restarting') return 'starting';
   if (state === 'exited') {
+    if (intentionallyStopped) return 'stopped';
     // Docker stop commonly yields signal exit codes (e.g. 143 SIGTERM, 137
     // SIGKILL after timeout). Treat those as user-requested stop, not failure.
     // Also tolerate empty/variant Status text seen right after transitions.
@@ -407,7 +411,9 @@ async function simulatorStatus() {
   }
   return installedSimulators().map((sim) => ({
     ...sim,
-    state: dockerReachable ? simulatorState(containers.get(sim.service)) : 'unknown',
+    state: dockerReachable
+      ? simulatorState(containers.get(sim.service), INTENTIONALLY_STOPPED_SIMULATORS.has(sim.id))
+      : 'unknown',
   }));
 }
 
