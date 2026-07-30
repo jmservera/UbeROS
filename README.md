@@ -232,6 +232,35 @@ docker compose up -d --build proxy control
 With auth enabled the workspace menu shows a **Logout** action that clears the
 stored credentials and forces re-authentication.
 
+## Verifying a release
+
+Release artifacts are signed keyless through GitHub Actions OIDC and the Sigstore
+transparency log, so there is no key to distribute. Each published image carries
+a GitHub build-provenance attestation, and each release bundle file carries a
+cosign signature.
+
+Verify an image attestation with the GitHub CLI:
+
+```bash
+gh attestation verify \
+  oci://ghcr.io/jmservera/uberos/frontend:0.4.0-beta \
+  --repo jmservera/UbeROS
+```
+
+Verify a bundle file with cosign, using the `.cosign.bundle` attached to the
+release and pinning the release workflow identity and the GitHub OIDC issuer:
+
+```bash
+cosign verify-blob \
+  --bundle uberos-0.4.0-beta.tar.gz.cosign.bundle \
+  --certificate-identity-regexp 'https://github.com/jmservera/UbeROS/.github/workflows/release.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  uberos-0.4.0-beta.tar.gz
+```
+
+The SHA-256 `checksums.txt` remains available for a plain integrity check on
+hosts without `gh` or `cosign`.
+
 ## Platform support
 
 UbeROS currently targets **x86_64** hosts (Linux, Windows via WSL2, and Intel
