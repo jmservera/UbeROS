@@ -27,6 +27,11 @@ env:
 jobs:
   publish-images:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write      # keyless signing via GitHub OIDC (issue #15)
+      attestations: write  # store SLSA build provenance beside the image
     strategy:
       fail-fast: false
       matrix:
@@ -92,6 +97,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push ${{ matrix.service }}
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -101,6 +107,16 @@ jobs:
           build-args: |
             UBEROS_VERSION=${{ steps.meta.outputs.version }}
             NPM_REGISTRY=https://registry.npmjs.org/
+
+      # Signed SLSA build provenance (issue #15). Keyless via GitHub OIDC; the
+      # attestation is keyed by digest, so one covers the pinned version tag and
+      # the moving :beta reference at once.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4.1.1
+        with:
+          subject-name: ${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
   # Generate the pinned release compose once every image exists, and fail the
   # release if any reference is unpinned or floating (FR-B4, FR-B9). Bundle
@@ -136,6 +152,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write  # keyless cosign sign-blob via GitHub OIDC (issue #15)
     steps:
       - uses: actions/checkout@v4
 
@@ -253,6 +270,26 @@ jobs:
             (cd "${bundle}" && sha256sum --check checksums.txt)
           done
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.1.0
+
+      # Keyless detached signatures for the release archives and checksums
+      # (issue #15). Each .cosign.bundle is portable and verifiable offline with
+      # `cosign verify-blob` against the workflow identity and OIDC issuer.
+      - name: Sign release bundle (keyless)
+        env:
+          ARCHIVE_BASE: ${{ steps.meta.outputs.archive_base }}
+        run: |
+          set -euo pipefail
+          for f in \
+            "dist/${ARCHIVE_BASE}.tar.gz" \
+            "dist/${ARCHIVE_BASE}.zip" \
+            dist/checksums.txt; do
+            cosign sign-blob --yes \
+              --bundle "${f}.cosign.bundle" \
+              "${f}"
+          done
+
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -275,4 +312,7 @@ jobs:
           gh release upload "${GITHUB_REF_NAME}" --clobber \
             "dist/${ARCHIVE_BASE}.tar.gz" \
             "dist/${ARCHIVE_BASE}.zip" \
-            dist/checksums.txt
+            dist/checksums.txt \
+            "dist/${ARCHIVE_BASE}.tar.gz.cosign.bundle" \
+            "dist/${ARCHIVE_BASE}.zip.cosign.bundle" \
+            dist/checksums.txt.cosign.bundle
