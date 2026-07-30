@@ -252,6 +252,7 @@ release and pinning the release workflow identity and the GitHub OIDC issuer:
 
 ```bash
 cosign verify-blob \
+  --new-bundle-format \
   --bundle uberos-0.4.0-beta.tar.gz.cosign.bundle \
   --certificate-identity-regexp 'https://github.com/jmservera/UbeROS/.github/workflows/release.yml@.*' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \

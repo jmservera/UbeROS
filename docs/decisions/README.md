@@ -43,6 +43,7 @@ a PR lands (or removes) the code that realizes an ADR, update that ADR's
 | [008](ADR-008-control-plane.md) | Operational Control Plane & Docker Socket | Implemented | `services/control/server.js`; socket-proxy hardening pending (AE-S1) |
 | [009](ADR-009-display-transport.md) | Simulator Display Transport & GPU Rejection | Implemented | Gazebo via gzweb (`services/gazebo` WebsocketServer → `services/gazebo/client` Three.js client run as the `gzweb-client` service, `/gzweb/` + `/gzweb/ws/`); Turtlesim via noVNC (`services/turtlesim`, `/sim/turtlesim/novnc/`); GPU rejected for interactive path; retired `simulator`+`vnc` noVNC-for-Gazebo path |
 | [010](ADR-010-persistence.md) | Persistence & Volume Strategy | Partially implemented | editor volumes done; server-side config store (Theme C) done via `control` GET/PUT `/config/settings` → `control-data` volume; backup/restore (AE-R2) & migration (AE-O2) pending |
+| [011](ADR-011-release-signing.md) | Release Artifact Signing | Implemented | `release.yml` keyless image attestations + `cosign` bundle signatures (new-bundle-format) + `verify-signing` gate; `install.sh` verifies in-bundle signature (issue #15) |
 
 ## Adding a new ADR
 
