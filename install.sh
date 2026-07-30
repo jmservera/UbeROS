@@ -169,6 +169,37 @@ verify_release_bundle() {
     die "checksum verification requires sha256sum or shasum on PATH"
   fi
   log "Release bundle checksums verified."
+
+  verify_release_signature
+}
+
+# Verify the bundle's authenticity signature when possible (issue #15). The
+# release pipeline ships a keyless cosign signature of checksums.txt inside the
+# bundle; because checksums.txt already vouches for every bundled file,
+# verifying it authenticates the whole payload. Gated: a host without cosign, or
+# a bundle without a signature, still installs on checksums alone. When cosign
+# and the signature are both present, a bad signature is fatal.
+verify_release_signature() {
+  _sig="${ROOT_DIR}/checksums.txt.cosign.bundle"
+  if [ ! -f "${_sig}" ]; then
+    log "No bundle signature present; skipping signature check (checksums verified)."
+    return 0
+  fi
+  if ! command -v cosign >/dev/null 2>&1; then
+    log "cosign not found; skipping signature check (checksums verified)."
+    log "Install cosign to cryptographically verify bundle authenticity."
+    return 0
+  fi
+  _identity="${UBEROS_SIGN_IDENTITY_REGEXP:-https://github.com/jmservera/UbeROS/.github/workflows/release.yml@.*}"
+  _issuer="${UBEROS_SIGN_OIDC_ISSUER:-https://token.actions.githubusercontent.com}"
+  log "Verifying release bundle signature with cosign..."
+  cosign verify-blob \
+    --bundle "${_sig}" \
+    --certificate-identity-regexp "${_identity}" \
+    --certificate-oidc-issuer "${_issuer}" \
+    "${ROOT_DIR}/checksums.txt" >/dev/null 2>&1 \
+    || die "release bundle signature verification failed; the bundle is not authentic or was modified"
+  log "Release bundle signature verified."
 }
 
 # True when the installer may prompt: not forced off and stdin is a terminal.

@@ -230,6 +230,23 @@ jobs:
             exit 1
           fi
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.1.0
+
+      # Sign the in-bundle checksums.txt and ship the signature inside the
+      # bundle so the release-mode installer can verify authenticity offline
+      # (issue #15). checksums.txt already vouches for every bundled file, so one
+      # signature covers the extracted payload.
+      - name: Sign bundle checksums for offline verification
+        env:
+          ARCHIVE_BASE: ${{ steps.meta.outputs.archive_base }}
+        run: |
+          set -euo pipefail
+          bundle="dist/${ARCHIVE_BASE}"
+          cosign sign-blob --yes \
+            --bundle "${bundle}/checksums.txt.cosign.bundle" \
+            "${bundle}/checksums.txt"
+
       - name: Create archives and checksums
         env:
           ARCHIVE_BASE: ${{ steps.meta.outputs.archive_base }}
@@ -269,9 +286,6 @@ jobs:
             test -d "${bundle}/simulation/worlds"
             (cd "${bundle}" && sha256sum --check checksums.txt)
           done
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v4.1.0
 
       # Keyless detached signatures for the release archives and checksums
       # (issue #15). Each .cosign.bundle is portable and verifiable offline with
