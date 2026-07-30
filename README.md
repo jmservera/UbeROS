@@ -202,6 +202,22 @@ The embedded terminal runs `ttyd` + `tmux`, so clipboard behavior follows both b
 
 If a browser blocks clipboard access, use the keyboard shortcut again after granting clipboard permissions for the site.
 
+### Measuring install time
+
+UbeROS targets a first run under 5 minutes on a clean host (goal G-001). The
+`scripts/benchmark-install.sh` harness runs a fresh non-interactive install and
+reports the time to a browser-ready UI, split into acquisition (build or pull
+plus start) and health-wait phases:
+
+```bash
+sh scripts/benchmark-install.sh --mode local
+```
+
+Pass `--target-seconds` to change the threshold, `--enforce` to exit non-zero
+when the total exceeds it, and `--cold` to tear down an existing stack first. A
+manual `Benchmark — Clean-Host Install` GitHub Actions workflow runs the same
+harness on a fresh runner for an authentic cold-start measurement.
+
 ## Security
 
 Authentication is off by default for localhost. Before any non-localhost
