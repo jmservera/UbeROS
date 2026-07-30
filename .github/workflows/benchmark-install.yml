@@ -1,0 +1,57 @@
+name: Benchmark — Clean-Host Install
+# Measures UbeROS time-to-UI on a clean runner (PRD 004 goal G-001: UI reachable
+# < 5 min on a clean host). Manual trigger so it never blocks routine PRs; a
+# fresh ubuntu-latest runner has no cached images, giving an authentic
+# clean-host measurement. Enforcement of the target is opt-in.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Install mode to benchmark
+        type: choice
+        default: local
+        options: [local, release]
+      target-seconds:
+        description: Pass/over threshold in seconds
+        type: string
+        default: '300'
+      enforce:
+        description: Fail the job when the total exceeds the target
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate pinned release Compose
+        if: inputs.mode == 'release'
+        run: sh scripts/gen-compose-release.sh "${GITHUB_REF_NAME}"
+
+      - name: Run install benchmark (${{ inputs.mode }})
+        run: |
+          set -eu
+          enforce_flag=''
+          if [ "${{ inputs.enforce }}" = 'true' ]; then
+            enforce_flag='--enforce'
+          fi
+          sh scripts/benchmark-install.sh \
+            --mode "${{ inputs.mode }}" \
+            --target-seconds "${{ inputs.target-seconds }}" \
+            ${enforce_flag} \
+            | tee benchmark-install.log
+
+      - name: Upload benchmark result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-install-${{ inputs.mode }}
+          path: benchmark-install.log
+          if-no-files-found: warn
