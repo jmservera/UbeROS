@@ -243,7 +243,7 @@ jobs:
         run: |
           set -euo pipefail
           bundle="dist/${ARCHIVE_BASE}"
-          cosign sign-blob --yes \
+          cosign sign-blob --yes --new-bundle-format \
             --bundle "${bundle}/checksums.txt.cosign.bundle" \
             "${bundle}/checksums.txt"
 
@@ -299,7 +299,7 @@ jobs:
             "dist/${ARCHIVE_BASE}.tar.gz" \
             "dist/${ARCHIVE_BASE}.zip" \
             dist/checksums.txt; do
-            cosign sign-blob --yes \
+            cosign sign-blob --yes --new-bundle-format \
               --bundle "${f}.cosign.bundle" \
               "${f}"
           done
@@ -330,3 +330,53 @@ jobs:
             "dist/${ARCHIVE_BASE}.tar.gz.cosign.bundle" \
             "dist/${ARCHIVE_BASE}.zip.cosign.bundle" \
             dist/checksums.txt.cosign.bundle
+
+  verify-signing:
+    # Prove the freshly published signatures actually verify against the release
+    # workflow identity, so signing can never silently break (issue #15). This
+    # gate consumes exactly what a consumer would: the pushed image attestation
+    # and the bundle signature attached to the GitHub Release.
+    needs: [publish-images, publish-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read       # download release assets via gh
+      packages: read       # resolve image manifests on ghcr
+      attestations: read   # read SLSA provenance for `gh attestation verify`
+    steps:
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.1.0
+
+      - name: Derive version
+        id: meta
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify image build provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh attestation verify \
+            "oci://${IMAGE_NAMESPACE}/frontend:${VERSION}" \
+            --repo "${GITHUB_REPOSITORY}"
+
+      - name: Verify release bundle signature
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          gh release download "${GITHUB_REF_NAME}" \
+            --pattern checksums.txt \
+            --pattern checksums.txt.cosign.bundle \
+            --dir "${work}"
+          cosign verify-blob "${work}/checksums.txt" \
+            --new-bundle-format \
+            --bundle "${work}/checksums.txt.cosign.bundle" \
+            --certificate-identity-regexp \
+              "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@.*" \
+            --certificate-oidc-issuer \
+              https://token.actions.githubusercontent.com

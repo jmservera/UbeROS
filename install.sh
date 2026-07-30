@@ -194,6 +194,7 @@ verify_release_signature() {
   _issuer="${UBEROS_SIGN_OIDC_ISSUER:-https://token.actions.githubusercontent.com}"
   log "Verifying release bundle signature with cosign..."
   cosign verify-blob \
+    --new-bundle-format \
     --bundle "${_sig}" \
     --certificate-identity-regexp "${_identity}" \
     --certificate-oidc-issuer "${_issuer}" \
