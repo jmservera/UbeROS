@@ -350,6 +350,60 @@ expect_failure 'checksum verification failed' env PATH="${FAKE_BIN}:${PATH}" \
 [ ! -s "${DOCKER_LOG}" ] || fail "tampered bundle reached Docker before rejection"
 pass "tampered release bundle is rejected before Docker runs"
 
+# --- Release signature verification (issue #15) -----------------------------
+printf '\n== release signature verification (issue #15) ==\n'
+SIG_ROOT="${SANDBOX}/release-sig"
+SIG_WS="${SANDBOX}/release-sig-ws"
+mkdir -p "${SIG_ROOT}"
+cp install.sh .env.template compose.override.gpu.yaml \
+  compose.override.intel.yaml compose.override.wsl.yaml "${SIG_ROOT}/"
+printf 'services: {}\n' > "${SIG_ROOT}/compose.release.yaml"
+printf '0.4.0-beta\n' > "${SIG_ROOT}/VERSION"
+(
+  cd "${SIG_ROOT}"
+  find . -type f ! -name checksums.txt -print0 \
+    | sort -z \
+    | xargs -0 sha256sum > checksums.txt
+)
+# Ship a signature file so the installer attempts verification.
+printf 'stub-signature\n' > "${SIG_ROOT}/checksums.txt.cosign.bundle"
+
+# A cosign that succeeds: the signed bundle installs and reaches Docker.
+cat > "${FAKE_BIN}/cosign" <<EOF
+#!/bin/sh
+exit 0
+EOF
+chmod +x "${FAKE_BIN}/cosign"
+: > "${DOCKER_LOG}"
+PATH="${FAKE_BIN}:${PATH}" sh "${SIG_ROOT}/install.sh" -y \
+  --workspace "${SIG_WS}" --no-migrate >/dev/null \
+  || fail "signed release bundle failed to install with a valid signature"
+grep -q 'compose .* pull' "${DOCKER_LOG}" \
+  || fail "signed release bundle did not reach the pull step"
+pass "signed release bundle with a valid signature installs"
+
+# A cosign that fails: verification is fail-closed before Docker.
+cat > "${FAKE_BIN}/cosign" <<EOF
+#!/bin/sh
+exit 1
+EOF
+chmod +x "${FAKE_BIN}/cosign"
+: > "${DOCKER_LOG}"
+expect_failure 'signature verification failed' env PATH="${FAKE_BIN}:${PATH}" \
+  sh "${SIG_ROOT}/install.sh" -y --workspace "${SIG_WS}" --no-migrate
+[ ! -s "${DOCKER_LOG}" ] || fail "bad-signature bundle reached Docker before rejection"
+pass "release bundle with an invalid signature is rejected before Docker runs"
+
+# Without cosign the signed bundle still installs on verified checksums alone.
+rm -f "${FAKE_BIN}/cosign"
+: > "${DOCKER_LOG}"
+PATH="${FAKE_BIN}:${PATH}" sh "${SIG_ROOT}/install.sh" -y \
+  --workspace "${SIG_WS}" --no-migrate >/dev/null \
+  || fail "signed bundle failed to install when cosign is absent"
+grep -q 'compose .* pull' "${DOCKER_LOG}" \
+  || fail "cosign-absent install did not reach the pull step"
+pass "signed bundle installs on checksums alone when cosign is absent"
+
 # --- Learning-package selection (PR-14) -------------------------------------
 printf '\n== learning-package selection (FR-H1, FR-H4, FR-H5) ==\n'
 PACKAGE_ROOT="${SANDBOX}/packages"
